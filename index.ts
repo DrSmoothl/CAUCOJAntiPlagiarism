@@ -222,13 +222,64 @@ const plagiarismModel = {
             
             // 按题目处理
             for (const problemId of report.problemIds) {
-                // 直接查询，让MongoDB自动处理类型转换
-                const submissions = await recordCol.find({
-                    contest: report.contestId as any,
-                    pid: problemId,
-                    status: 1, // 只分析AC的提交
-                    code: { $exists: true, $ne: '' }
-                }).toArray();
+                // 使用灵活的查询方式，参考CAUCOJUserBind的策略
+                let submissions: any[] = [];
+                
+                // 详细调试信息
+                console.log(`正在查询题目 ${problemId} 的提交，比赛ID: ${report.contestId}`);
+                console.log(`比赛ID类型: ${typeof report.contestId}, 题目ID类型: ${typeof problemId}`);
+                
+                // 方式1: 直接查询
+                try {
+                    submissions = await recordCol.find({
+                        contest: report.contestId as any,
+                        pid: problemId,
+                        status: 1, // 恢复状态限制，只分析AC的提交
+                        code: { $exists: true, $ne: '' }
+                    }).toArray();
+                    console.log(`直接查询结果: ${submissions.length} 个提交`);
+                } catch (error) {
+                    console.log(`直接查询失败，尝试字符串匹配: ${error}`);
+                }
+                
+                // 方式2: 如果直接查询失败或结果为空，尝试字符串匹配
+                if (submissions.length === 0) {
+                    try {
+                        // 先查询所有有代码的提交，看看有多少
+                        const allSubmissionsCount = await recordCol.countDocuments({
+                            code: { $exists: true, $ne: '' }
+                        });
+                        console.log(`数据库中总共有 ${allSubmissionsCount} 个有代码的提交`);
+                        
+                        // 查询该比赛的所有提交
+                        const contestSubmissionsCount = await recordCol.countDocuments({
+                            contest: report.contestId as any
+                        });
+                        console.log(`比赛 ${report.contestId} 总共有 ${contestSubmissionsCount} 个提交`);
+                        
+                        const allSubmissions = await recordCol.find({
+                            code: { $exists: true, $ne: '' }
+                        }).toArray();
+                        
+                        submissions = allSubmissions.filter(sub => {
+                            const contestMatch = sub.contest?.toString() === report.contestId.toString();
+                            const pidMatch = sub.pid?.toString() === problemId.toString();
+                            const statusMatch = sub.status === 1;
+                            
+                            if (contestMatch && pidMatch) {
+                                console.log(`找到匹配的提交: 用户 ${sub.uid}, 状态 ${sub.status}, AC: ${statusMatch}`);
+                            }
+                            
+                            return contestMatch && pidMatch && statusMatch;
+                        });
+                        
+                        console.log(`字符串匹配查询 - 题目 ${problemId}: 找到 ${submissions.length} 个提交`);
+                    } catch (error) {
+                        console.log(`字符串匹配查询也失败: ${error}`);
+                    }
+                }
+                
+                console.log(`题目 ${problemId} 最终找到 ${submissions.length} 个提交`);
                 
                 // 按语言分组
                 const langGroups = this.groupByLanguage(submissions);
@@ -672,14 +723,54 @@ class PlagiarismProblemDetailHandler extends Handler {
             }
             
             // 获取该语言的所有提交，以便在没有相似对时也能展示
-            const allSubmissions = await recordCol.find({
-                contest: contestId as any,
-                pid: parseInt(problemId),
-                status: 1,
-                code: { $exists: true, $ne: '' }
-            }).toArray() as unknown as Submission[];
+            // 使用灵活的查询方式，参考CAUCOJUserBind的策略
+            let allSubmissions: any[] = [];
             
-            const langGroups = plagiarismModel.groupByLanguage(allSubmissions);
+            // 详细调试信息
+            console.log(`详情页查询 - 比赛ID: ${contestId}, 题目ID: ${problemId}`);
+            console.log(`比赛ID类型: ${typeof contestId}, 题目ID类型: ${typeof problemId}`);
+            
+            // 方式1: 直接查询
+            try {
+                allSubmissions = await recordCol.find({
+                    contest: contestId as any,
+                    pid: parseInt(problemId),
+                    status: 1, // 恢复状态限制
+                    code: { $exists: true, $ne: '' }
+                }).toArray();
+                console.log(`详情页直接查询结果: ${allSubmissions.length} 个提交`);
+            } catch (error) {
+                console.log(`题目详情直接查询失败: ${error}`);
+            }
+            
+            // 方式2: 如果直接查询失败或结果为空，尝试字符串匹配
+            if (allSubmissions.length === 0) {
+                try {
+                    const allRecords = await recordCol.find({
+                        code: { $exists: true, $ne: '' }
+                    }).toArray();
+                    
+                    allSubmissions = allRecords.filter(sub => {
+                        const contestMatch = sub.contest?.toString() === contestId.toString();
+                        const pidMatch = sub.pid?.toString() === problemId.toString();
+                        const statusMatch = sub.status === 1;
+                        
+                        if (contestMatch && pidMatch) {
+                            console.log(`详情页找到匹配的提交: 用户 ${sub.uid}, 状态 ${sub.status}, AC: ${statusMatch}`);
+                        }
+                        
+                        return contestMatch && pidMatch && statusMatch;
+                    });
+                    
+                    console.log(`题目详情字符串匹配 - 找到 ${allSubmissions.length} 个提交`);
+                } catch (error) {
+                    console.log(`题目详情字符串匹配也失败: ${error}`);
+                }
+            }
+            
+            console.log(`题目详情 - 题目 ${problemId} 最终找到 ${allSubmissions.length} 个提交`);
+            
+            const langGroups = plagiarismModel.groupByLanguage(allSubmissions as unknown as Submission[]);
             const langSubmissions = langGroups[result.language] || [];
             
             // 为每个提交添加用户信息
