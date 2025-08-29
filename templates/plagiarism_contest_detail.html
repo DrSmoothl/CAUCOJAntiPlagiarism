@@ -43,7 +43,7 @@
                         {{ _('查重报告') }} #{{ loop.index }}
                     </h3>
                     <div class="plagiarism-report-meta">
-                        <span>{{ _('创建时间') }}: {{ report.createdAt | date('YYYY-MM-DD HH:mm:ss') }}</span>
+                        <span>{{ _('创建时间') }}: {{ datetimeSpan(report.createdAt)|safe }}</span>
                         <span>{{ _('题目数量') }}: {{ report.problemIds.length }}</span>
                     </div>
                 </div>

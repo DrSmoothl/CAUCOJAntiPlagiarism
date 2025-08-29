@@ -67,7 +67,7 @@
                 <div class="plagiarism-report-info">
                     <div class="plagiarism-report-meta">
                         <span>{{ _('题目数量') }}: {{ report.problemIds.length }}</span>
-                        <span>{{ _('创建时间') }}: {{ report.createdAt | date('YYYY-MM-DD HH:mm') }}</span>
+                        <span>{{ _('创建时间') }}: {{ datetimeSpan(report.createdAt)|safe }}</span>
                     </div>
                     {% if report.contest %}
                     <div class="plagiarism-report-actions">
