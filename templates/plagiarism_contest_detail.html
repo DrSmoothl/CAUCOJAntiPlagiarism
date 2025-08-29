@@ -91,7 +91,8 @@
                         </div>
                         
                         <div class="plagiarism-result-pairs">
-                            {% for pair in result.pairs[:3] %}
+                            {% for pair in result.pairs %}
+                            {% if loop.index <= 3 %}
                             <div class="plagiarism-pair-item">
                                 <div class="plagiarism-pair-users">
                                     <span class="plagiarism-user">{{ _('用户') }} {{ pair.user1 }}</span>
@@ -108,6 +109,7 @@
                                     </span>
                                 </div>
                             </div>
+                            {% endif %}
                             {% endfor %}
                             
                             {% if result.pairs.length > 3 %}
