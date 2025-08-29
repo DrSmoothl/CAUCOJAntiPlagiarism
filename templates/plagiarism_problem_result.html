@@ -1,0 +1,838 @@
+{% set page_name = "plagiarism_problem_result" %}
+{% extends "layout/basic.html" %}
+
+{% block content %}
+<div class="plagiarism-result-container">
+    <div class="plagiarism-result-header">
+        <h1 class="plagiarism-result-title">{{ _('题目查重结果') }}</h1>
+        <div class="plagiarism-problem-info">
+            <h2 class="plagiarism-problem-name">{{ problem.docId }} - {{ problem.title }}</h2>
+            <div class="plagiarism-problem-meta">
+                <span>{{ _('比赛') }}: {{ contest.title }}</span>
+                <span>{{ _('分析语言') }}: {{ results.length }}</span>
+                <span>{{ _('总提交数') }}: 
+                    {% set totalSubmissions = 0 %}
+                    {% for result in results %}
+                        {% set totalSubmissions = totalSubmissions + result.submissionCount %}
+                    {% endfor %}
+                    {{ totalSubmissions }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="plagiarism-navigation">
+        <a href="/plagiarism/contest/{{ contest._id }}" class="plagiarism-nav-btn plagiarism-nav-btn-secondary">
+            <i class="icon icon-arrow-left"></i>
+            {{ _('返回比赛总览') }}
+        </a>
+    </div>
+
+    {% if results.length > 0 %}
+    <!-- 语言标签页 -->
+    <div class="plagiarism-language-tabs">
+        <div class="plagiarism-tabs-header">
+            {% for result in results %}
+            <button class="plagiarism-tab-btn {% if loop.first %}active{% endif %}" 
+                    data-tab="lang-{{ result.language }}" 
+                    onclick="switchLanguageTab('{{ result.language }}')">
+                <span class="plagiarism-lang-icon">{{ result.languageName }}</span>
+                <div class="plagiarism-tab-stats">
+                    <span class="plagiarism-tab-count">{{ result.pairs.length }} {{ _('组') }}</span>
+                    <span class="plagiarism-tab-users">{{ result.userCount }} {{ _('用户') }}</span>
+                </div>
+            </button>
+            {% endfor %}
+        </div>
+
+        <!-- 标签页内容 -->
+        {% for result in results %}
+        <div class="plagiarism-tab-content {% if loop.first %}active{% endif %}" 
+             id="lang-{{ result.language }}">
+            
+            <div class="plagiarism-language-summary">
+                <div class="plagiarism-summary-card">
+                    <div class="plagiarism-summary-stat">
+                        <div class="plagiarism-stat-number">{{ result.submissionCount }}</div>
+                        <div class="plagiarism-stat-label">{{ _('总提交数') }}</div>
+                    </div>
+                    <div class="plagiarism-summary-stat">
+                        <div class="plagiarism-stat-number">{{ result.userCount }}</div>
+                        <div class="plagiarism-stat-label">{{ _('参与用户') }}</div>
+                    </div>
+                    <div class="plagiarism-summary-stat">
+                        <div class="plagiarism-stat-number">{{ result.pairs.length }}</div>
+                        <div class="plagiarism-stat-label">{{ _('相似对') }}</div>
+                    </div>
+                    {% if result.pairs.length > 0 %}
+                    <div class="plagiarism-summary-stat">
+                        <div class="plagiarism-stat-number">{{ (result.pairs[0].similarity * 100) | round(1) }}%</div>
+                        <div class="plagiarism-stat-label">{{ _('最高相似度') }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if result.pairs.length > 0 %}
+            <!-- 用户列表和选择器 -->
+            <div class="plagiarism-user-selector">
+                <div class="plagiarism-selector-header">
+                    <h3>{{ _('选择基准用户') }}</h3>
+                    <p>{{ _('点击用户查看其与其他用户的代码相似度') }}</p>
+                </div>
+                
+                <div class="plagiarism-user-grid">
+                    {% set uniqueUsers = {} %}
+                    {% for pair in result.pairs %}
+                        {% set dummy = uniqueUsers.__setitem__(pair.user1, pair.user1Info) %}
+                        {% set dummy = uniqueUsers.__setitem__(pair.user2, pair.user2Info) %}
+                    {% endfor %}
+                    
+                    {% for userId, userInfo in uniqueUsers %}
+                    <div class="plagiarism-user-card" 
+                         onclick="selectBaseUser('{{ result.language }}', {{ userId }})">
+                        <div class="plagiarism-user-avatar">
+                            {% if userInfo and userInfo.avatar %}
+                                <img src="{{ userInfo.avatar }}" alt="{{ userInfo.uname }}">
+                            {% else %}
+                                <div class="plagiarism-default-avatar">
+                                    {{ (userInfo.uname if userInfo else 'User ' + userId)[0] | upper }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="plagiarism-user-info">
+                            <div class="plagiarism-user-name">
+                                {{ userInfo.uname if userInfo else 'User ' + userId }}
+                            </div>
+                            <div class="plagiarism-user-id">ID: {{ userId }}</div>
+                            <div class="plagiarism-user-related">
+                                {% set relatedCount = 0 %}
+                                {% for pair in result.pairs %}
+                                    {% if pair.user1 == userId or pair.user2 == userId %}
+                                        {% set relatedCount = relatedCount + 1 %}
+                                    {% endif %}
+                                {% endfor %}
+                                {{ relatedCount }} {{ _('个相似对') }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- 相似度详情展示区域 -->
+            <div class="plagiarism-similarity-details" id="details-{{ result.language }}" style="display: none;">
+                <div class="plagiarism-details-header">
+                    <h3 id="details-title-{{ result.language }}">{{ _('相似度详情') }}</h3>
+                    <button class="plagiarism-close-details" onclick="closeDetails('{{ result.language }}')">
+                        <i class="icon icon-times"></i>
+                    </button>
+                </div>
+                
+                <div class="plagiarism-similarity-list" id="similarity-list-{{ result.language }}">
+                    <!-- 动态加载相似度内容 -->
+                </div>
+            </div>
+            {% else %}
+            <div class="plagiarism-no-similarities">
+                <i class="icon icon-check-circle"></i>
+                <h3>{{ _('未发现相似代码') }}</h3>
+                <p>{{ _('该语言下的所有提交均为原创代码') }}</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="plagiarism-empty">
+        <div class="plagiarism-empty-icon">✅</div>
+        <h3 class="plagiarism-empty-title">{{ _('查重完成') }}</h3>
+        <p class="plagiarism-empty-text">{{ _('该题目未发现任何相似代码') }}</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// 存储查重结果数据
+const plagiarismData = {
+    {% for result in results %}
+    '{{ result.language }}': {
+        language: '{{ result.language }}',
+        languageName: '{{ result.languageName }}',
+        pairs: [
+            {% for pair in result.pairs %}
+            {
+                user1: {{ pair.user1 }},
+                user2: {{ pair.user2 }},
+                user1Info: {
+                    uname: '{{ pair.user1Info.uname if pair.user1Info else "User " + pair.user1 }}',
+                    avatar: '{{ pair.user1Info.avatar if pair.user1Info else "" }}'
+                },
+                user2Info: {
+                    uname: '{{ pair.user2Info.uname if pair.user2Info else "User " + pair.user2 }}',
+                    avatar: '{{ pair.user2Info.avatar if pair.user2Info else "" }}'
+                },
+                similarity: {{ pair.similarity }},
+                submission1: '{{ pair.submission1 }}',
+                submission2: '{{ pair.submission2 }}',
+                details: {{ pair.details | dump | safe }}
+            }{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ]
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+};
+
+const contestId = '{{ contest._id }}';
+const problemId = '{{ problem.docId }}';
+
+// 切换语言标签页
+function switchLanguageTab(language) {
+    // 移除所有活动状态
+    document.querySelectorAll('.plagiarism-tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.plagiarism-tab-content').forEach(content => content.classList.remove('active'));
+    
+    // 激活选中的标签页
+    document.querySelector(`[data-tab="lang-${language}"]`).classList.add('active');
+    document.getElementById(`lang-${language}`).classList.add('active');
+    
+    // 隐藏详情面板
+    closeDetails(language);
+}
+
+// 选择基准用户
+function selectBaseUser(language, userId) {
+    const data = plagiarismData[language];
+    if (!data) return;
+    
+    // 筛选包含该用户的相似对
+    const userPairs = data.pairs.filter(pair => pair.user1 == userId || pair.user2 == userId);
+    
+    if (userPairs.length === 0) return;
+    
+    // 更新标题
+    const baseUser = userPairs[0].user1 == userId ? userPairs[0].user1Info : userPairs[0].user2Info;
+    const detailsTitle = document.getElementById(`details-title-${language}`);
+    detailsTitle.textContent = `${baseUser.uname} 的相似度分析 (${userPairs.length} 个相似对)`;
+    
+    // 生成相似度列表
+    const similarityList = document.getElementById(`similarity-list-${language}`);
+    similarityList.innerHTML = '';
+    
+    userPairs.forEach((pair, index) => {
+        const isUser1 = pair.user1 == userId;
+        const targetUser = isUser1 ? pair.user2Info : pair.user1Info;
+        const targetUserId = isUser1 ? pair.user2 : pair.user1;
+        
+        const pairElement = document.createElement('div');
+        pairElement.className = 'plagiarism-pair-item';
+        pairElement.innerHTML = `
+            <div class="plagiarism-pair-summary">
+                <div class="plagiarism-target-user">
+                    <div class="plagiarism-target-avatar">
+                        ${targetUser.avatar ? 
+                            `<img src="${targetUser.avatar}" alt="${targetUser.uname}">` :
+                            `<div class="plagiarism-default-avatar">${targetUser.uname[0].toUpperCase()}</div>`
+                        }
+                    </div>
+                    <div class="plagiarism-target-info">
+                        <div class="plagiarism-target-name">${targetUser.uname}</div>
+                        <div class="plagiarism-target-id">ID: ${targetUserId}</div>
+                    </div>
+                </div>
+                
+                <div class="plagiarism-similarity-meter">
+                    <div class="plagiarism-similarity-bar">
+                        <div class="plagiarism-similarity-fill" style="width: ${pair.similarity * 100}%; background-color: ${getSimilarityColor(pair.similarity)}"></div>
+                    </div>
+                    <div class="plagiarism-similarity-value">${(pair.similarity * 100).toFixed(1)}%</div>
+                </div>
+                
+                <div class="plagiarism-pair-actions">
+                    <button class="plagiarism-compare-btn" onclick="openCodeComparison('${pair.submission1}', '${pair.submission2}')">
+                        <i class="icon icon-code"></i>
+                        ${_('查看代码对比')}
+                    </button>
+                </div>
+            </div>
+            
+            ${pair.details.length > 0 ? `
+            <div class="plagiarism-pair-summary-details">
+                <button class="plagiarism-toggle-segments" onclick="toggleSegments(this)">
+                    <i class="icon icon-chevron-down"></i>
+                    ${_('查看相似片段')} (${pair.details.length})
+                </button>
+                <div class="plagiarism-segments-content" style="display: none;">
+                    ${pair.details.map((detail, segIndex) => `
+                    <div class="plagiarism-segment-preview">
+                        <div class="plagiarism-segment-info">
+                            <span>${_('相似度')}: ${(detail.similarity * 100).toFixed(1)}%</span>
+                            <span>${_('行数')}: ${detail.startLine1}-${detail.endLine1} vs ${detail.startLine2}-${detail.endLine2}</span>
+                        </div>
+                    </div>
+                    `).join('')}
+                </div>
+            </div>
+            ` : ''}
+        `;
+        similarityList.appendChild(pairElement);
+    });
+    
+    // 显示详情面板
+    document.getElementById(`details-${language}`).style.display = 'block';
+    
+    // 滚动到详情区域
+    document.getElementById(`details-${language}`).scrollIntoView({ behavior: 'smooth' });
+}
+
+// 关闭详情面板
+function closeDetails(language) {
+    document.getElementById(`details-${language}`).style.display = 'none';
+}
+
+// 切换代码片段展示
+function toggleSegments(button) {
+    const content = button.nextElementSibling;
+    const icon = button.querySelector('.icon');
+    
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        icon.className = 'icon icon-chevron-up';
+    } else {
+        content.style.display = 'none';
+        icon.className = 'icon icon-chevron-down';
+    }
+}
+
+// 打开代码对比页面
+function openCodeComparison(sub1, sub2) {
+    const url = `/plagiarism/contest/${contestId}/${problemId}/compare/${sub1}/${sub2}`;
+    window.open(url, '_blank');
+}
+
+// 获取相似度颜色
+function getSimilarityColor(score) {
+    if (score >= 0.8) return '#e74c3c';  // 红色 - 高相似度
+    if (score >= 0.6) return '#f39c12';  // 橙色 - 中等相似度
+    return '#3498db';  // 蓝色 - 低相似度
+}
+
+// 页面加载完成后的初始化
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('题目查重结果页面已加载', plagiarismData);
+});
+</script>
+
+<style>
+.plagiarism-result-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+.plagiarism-result-header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.plagiarism-result-title {
+    font-size: 2.2rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 16px;
+}
+
+.plagiarism-problem-info {
+    background: #ffffff;
+    border: 1px solid #e1e8ed;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.plagiarism-problem-name {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 12px;
+}
+
+.plagiarism-problem-meta {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    font-size: 0.9rem;
+    color: #7f8c8d;
+    flex-wrap: wrap;
+}
+
+.plagiarism-navigation {
+    margin-bottom: 32px;
+}
+
+.plagiarism-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.plagiarism-nav-btn-secondary {
+    background: #ffffff;
+    color: #3498db;
+    border: 2px solid #3498db;
+}
+
+.plagiarism-nav-btn-secondary:hover {
+    background: #3498db;
+    color: white;
+}
+
+/* 语言标签页样式 */
+.plagiarism-language-tabs {
+    background: #ffffff;
+    border: 1px solid #e1e8ed;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.plagiarism-tabs-header {
+    display: flex;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e1e8ed;
+    overflow-x: auto;
+}
+
+.plagiarism-tab-btn {
+    flex: 1;
+    min-width: 120px;
+    padding: 16px 20px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-bottom: 3px solid transparent;
+    text-align: center;
+}
+
+.plagiarism-tab-btn:hover {
+    background: #e9ecef;
+}
+
+.plagiarism-tab-btn.active {
+    background: #ffffff;
+    border-bottom-color: #3498db;
+    color: #3498db;
+}
+
+.plagiarism-lang-icon {
+    display: block;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.plagiarism-tab-stats {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    font-size: 0.75rem;
+    color: #7f8c8d;
+}
+
+.plagiarism-tab-content {
+    display: none;
+    padding: 24px;
+}
+
+.plagiarism-tab-content.active {
+    display: block;
+}
+
+/* 语言摘要样式 */
+.plagiarism-language-summary {
+    margin-bottom: 32px;
+}
+
+.plagiarism-summary-card {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 20px;
+    background: #f8f9fa;
+    border: 1px solid #e1e8ed;
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.plagiarism-summary-stat {
+    text-align: center;
+}
+
+.plagiarism-stat-number {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 4px;
+}
+
+.plagiarism-stat-label {
+    font-size: 0.875rem;
+    color: #7f8c8d;
+    font-weight: 500;
+}
+
+/* 用户选择器样式 */
+.plagiarism-user-selector {
+    margin-bottom: 32px;
+}
+
+.plagiarism-selector-header {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.plagiarism-selector-header h3 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 8px;
+}
+
+.plagiarism-selector-header p {
+    color: #7f8c8d;
+    margin: 0;
+}
+
+.plagiarism-user-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+}
+
+.plagiarism-user-card {
+    background: #ffffff;
+    border: 2px solid #e1e8ed;
+    border-radius: 12px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.plagiarism-user-card:hover {
+    border-color: #3498db;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.2);
+}
+
+.plagiarism-user-avatar {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 12px;
+    border-radius: 50%;
+    overflow: hidden;
+}
+
+.plagiarism-user-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.plagiarism-default-avatar {
+    width: 100%;
+    height: 100%;
+    background: #3498db;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.plagiarism-user-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 4px;
+}
+
+.plagiarism-user-id {
+    font-size: 0.875rem;
+    color: #7f8c8d;
+    margin-bottom: 4px;
+}
+
+.plagiarism-user-related {
+    font-size: 0.75rem;
+    color: #3498db;
+    font-weight: 500;
+}
+
+/* 相似度详情样式 */
+.plagiarism-similarity-details {
+    background: #f8f9fa;
+    border: 1px solid #e1e8ed;
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 24px;
+}
+
+.plagiarism-details-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e1e8ed;
+}
+
+.plagiarism-details-header h3 {
+    margin: 0;
+    color: #2c3e50;
+    font-size: 1.2rem;
+}
+
+.plagiarism-close-details {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #7f8c8d;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.plagiarism-close-details:hover {
+    background: #e9ecef;
+    color: #495057;
+}
+
+.plagiarism-similarity-list {
+    display: grid;
+    gap: 16px;
+}
+
+.plagiarism-pair-item {
+    background: #ffffff;
+    border: 1px solid #e1e8ed;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.plagiarism-pair-summary {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.plagiarism-target-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+
+.plagiarism-target-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+}
+
+.plagiarism-target-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.plagiarism-target-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.plagiarism-target-id {
+    font-size: 0.875rem;
+    color: #7f8c8d;
+}
+
+.plagiarism-similarity-meter {
+    flex: 1;
+    max-width: 200px;
+}
+
+.plagiarism-similarity-bar {
+    width: 100%;
+    height: 8px;
+    background: #e1e8ed;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+
+.plagiarism-similarity-fill {
+    height: 100%;
+    transition: all 0.3s ease;
+}
+
+.plagiarism-similarity-value {
+    text-align: center;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.plagiarism-compare-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #3498db;
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.plagiarism-compare-btn:hover {
+    background: #2980b9;
+    transform: translateY(-1px);
+}
+
+.plagiarism-pair-summary-details {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e1e8ed;
+}
+
+.plagiarism-toggle-segments {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid #e1e8ed;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: #7f8c8d;
+    transition: all 0.2s ease;
+}
+
+.plagiarism-toggle-segments:hover {
+    background: #f8f9fa;
+    border-color: #adb5bd;
+}
+
+.plagiarism-segments-content {
+    margin-top: 8px;
+    padding: 8px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.plagiarism-segment-preview {
+    padding: 8px;
+    background: #ffffff;
+    border: 1px solid #e1e8ed;
+    border-radius: 4px;
+    margin-bottom: 4px;
+}
+
+.plagiarism-segment-info {
+    display: flex;
+    gap: 16px;
+    font-size: 0.75rem;
+    color: #7f8c8d;
+}
+
+.plagiarism-no-similarities {
+    text-align: center;
+    padding: 60px 20px;
+    color: #27ae60;
+}
+
+.plagiarism-no-similarities i {
+    font-size: 3rem;
+    margin-bottom: 16px;
+}
+
+.plagiarism-no-similarities h3 {
+    font-size: 1.3rem;
+    margin-bottom: 8px;
+}
+
+.plagiarism-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: #7f8c8d;
+}
+
+.plagiarism-empty-icon {
+    font-size: 4rem;
+    margin-bottom: 16px;
+}
+
+.plagiarism-empty-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #27ae60;
+    margin-bottom: 8px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .plagiarism-result-container {
+        padding: 16px;
+    }
+    
+    .plagiarism-problem-meta {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .plagiarism-tabs-header {
+        flex-direction: column;
+    }
+    
+    .plagiarism-tab-btn {
+        min-width: auto;
+    }
+    
+    .plagiarism-summary-card {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .plagiarism-user-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .plagiarism-pair-summary {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .plagiarism-target-user {
+        justify-content: center;
+    }
+    
+    .plagiarism-similarity-meter {
+        max-width: none;
+        width: 100%;
+    }
+}
+</style>
+{% endblock %}

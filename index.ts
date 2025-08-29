@@ -53,6 +53,9 @@ interface PlagiarismReport {
 interface PlagiarismResult {
     problemId: number;
     language: string;
+    languageName: string;
+    submissionCount: number;
+    userCount: number;
     pairs: SimilarityPair[];
 }
 
@@ -265,9 +268,19 @@ const plagiarismModel = {
                     }
                     
                     if (pairs.length > 0) {
+                        // 获取独特的用户数量
+                        const uniqueUsers = new Set<number>();
+                        pairs.forEach(pair => {
+                            uniqueUsers.add(pair.user1);
+                            uniqueUsers.add(pair.user2);
+                        });
+
                         results.push({
                             problemId,
                             language,
+                            languageName: this.getLanguageDisplayName(language),
+                            submissionCount: (langSubmissions as Submission[]).length,
+                            userCount: uniqueUsers.size,
                             pairs: pairs.sort((a, b) => b.similarity - a.similarity)
                         });
                     }
@@ -300,16 +313,20 @@ const plagiarismModel = {
         
         for (const submission of submissions) {
             let langGroup = 'other';
+            const lang = submission.lang;
             
-            // 根据实际的语言ID进行分组
-            if (submission.lang === 'c' || submission.lang.startsWith('cc.')) {
+            // 根据HydroOJ实际的语言ID进行分组
+            if (lang === 'c') {
                 langGroup = 'c';
-            } else if (submission.lang.startsWith('cc') || submission.lang.includes('gcc') || submission.lang.includes('g++')) {
+            } else if (['cc', 'cc.cc98', 'cc.cc98o2', 'cc.cc11', 'cc.cc11o2', 'cc.cc14', 'cc.cc14o2', 'cc.cc17', 'cc.cc17o2', 'cc.cc20', 'cc.cc20o2'].includes(lang)) {
                 langGroup = 'cpp';
-            } else if (submission.lang.startsWith('py.') || submission.lang === 'python') {
-                langGroup = 'python';
-            } else if (submission.lang === 'java' || submission.lang.startsWith('java')) {
+            } else if (lang === 'java') {
                 langGroup = 'java';
+            } else if (lang === 'py.py3') {
+                langGroup = 'python';
+            } else {
+                // 对于其他语言，保持原始语言标识
+                langGroup = lang;
             }
             
             if (!groups[langGroup]) {
@@ -319,6 +336,17 @@ const plagiarismModel = {
         }
         
         return groups;
+    },
+
+    // 获取语言的显示名称
+    getLanguageDisplayName(langId: string): string {
+        const langNames: Record<string, string> = {
+            'c': 'C',
+            'cpp': 'C++',
+            'java': 'Java',
+            'python': 'Python'
+        };
+        return langNames[langId] || langId.toUpperCase();
     },
     
     // 获取查重报告
@@ -392,6 +420,11 @@ const plagiarismModel = {
     // 获取用户信息
     async getUserInfo(uid: number): Promise<any> {
         return await UserModel.getById('system', uid);
+    },
+
+    // 获取提交详情
+    async getSubmission(submissionId: string): Promise<Submission | null> {
+        return await recordCol.findOne({ _id: submissionId as any }) as Submission | null;
     },
     
     // 获取所有比赛列表
@@ -641,13 +674,103 @@ class PlagiarismProblemDetailHandler extends Handler {
             }
         }
         
-        this.response.template = 'plagiarism_problem_detail.html';
+        this.response.template = 'plagiarism_problem_result.html';
         this.response.body = {
             contest,
             problem,
             results,
             title: `查重结果 - ${problem.title}`
         };
+    }
+}
+
+// 代码对比详情界面
+class PlagiarismCodeCompareHandler extends Handler {
+    async get() {
+        this.checkPriv(PRIV.PRIV_EDIT_SYSTEM);
+        
+        const { contestId, problemId, sub1, sub2 } = this.request.params;
+        if (!contestId || !problemId || !sub1 || !sub2) {
+            throw new NotFoundError('参数无效');
+        }
+        
+        const contest = await plagiarismModel.getContest(contestId);
+        if (!contest) {
+            throw new NotFoundError('比赛不存在');
+        }
+        
+        const problems = await plagiarismModel.getProblems([parseInt(problemId)]);
+        if (problems.length === 0) {
+            throw new NotFoundError('题目不存在');
+        }
+        const problem = problems[0];
+        
+        // 获取两个提交的详情
+        const submission1 = await plagiarismModel.getSubmission(sub1);
+        const submission2 = await plagiarismModel.getSubmission(sub2);
+        
+        if (!submission1 || !submission2) {
+            throw new NotFoundError('提交不存在');
+        }
+        
+        // 获取用户信息
+        const user1 = await plagiarismModel.getUserInfo(submission1.uid);
+        const user2 = await plagiarismModel.getUserInfo(submission2.uid);
+        
+        // 计算相似度和详细对比
+        const similarity = CodeSimilarityAnalyzer.calculateSimilarity(
+            submission1.code, submission2.code, submission1.lang
+        );
+        
+        const details = CodeSimilarityAnalyzer.findSimilarSegments(
+            submission1.code, submission2.code, submission1.lang
+        );
+        
+        // 高亮重复部分
+        const highlightedCode1 = this.highlightSimilarParts(submission1.code, details, 1);
+        const highlightedCode2 = this.highlightSimilarParts(submission2.code, details, 2);
+        
+        this.response.template = 'plagiarism_code_compare.html';
+        this.response.body = {
+            contest,
+            problem,
+            submission1: {
+                ...submission1,
+                user: user1,
+                highlightedCode: highlightedCode1
+            },
+            submission2: {
+                ...submission2,
+                user: user2,
+                highlightedCode: highlightedCode2
+            },
+            similarity,
+            details,
+            title: `代码对比 - ${problem.title}`
+        };
+    }
+    
+    private highlightSimilarParts(code: string, details: SimilarityDetail[], submissionIndex: 1 | 2): string {
+        const lines = code.split('\n');
+        const highlightedLines = [...lines];
+        
+        // 按行号排序，从后往前处理避免索引偏移
+        const sortedDetails = details.sort((a, b) => {
+            const startLineA = submissionIndex === 1 ? a.startLine1 : a.startLine2;
+            const startLineB = submissionIndex === 1 ? b.startLine1 : b.startLine2;
+            return startLineB - startLineA;
+        });
+        
+        sortedDetails.forEach((detail, index) => {
+            const startLine = submissionIndex === 1 ? detail.startLine1 : detail.startLine2;
+            const endLine = submissionIndex === 1 ? detail.endLine1 : detail.endLine2;
+            
+            for (let i = startLine - 1; i < endLine && i < highlightedLines.length; i++) {
+                highlightedLines[i] = `<span class="plagiarism-highlight-${index % 5}">${highlightedLines[i]}</span>`;
+            }
+        });
+        
+        return highlightedLines.join('\n');
     }
 }
 
@@ -658,6 +781,7 @@ export function apply(ctx: Context) {
     ctx.Route('plagiarism_contest_select', '/plagiarism/contest/:contestId/select', PlagiarismContestSelectHandler);
     ctx.Route('plagiarism_contest_detail', '/plagiarism/contest/:contestId', PlagiarismContestDetailHandler);
     ctx.Route('plagiarism_problem_detail', '/plagiarism/contest/:contestId/:problemId', PlagiarismProblemDetailHandler);
+    ctx.Route('plagiarism_code_compare', '/plagiarism/contest/:contestId/:problemId/compare/:sub1/:sub2', PlagiarismCodeCompareHandler);
     
     // 创建数据库索引
     plagiarismCol.createIndex({ contestId: 1 });
