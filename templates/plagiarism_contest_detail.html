@@ -143,6 +143,24 @@
                     <h4 class="plagiarism-no-results-title">{{ _('查重完成') }}</h4>
                     <p class="plagiarism-no-results-text">{{ _('未发现任何相似代码') }}</p>
                 </div>
+                
+                {% if report.problems and report.problems.length > 0 %}
+                <div class="plagiarism-problem-list">
+                    <h5 class="plagiarism-problem-list-title">{{ _('查看具体题目') }}:</h5>
+                    <div class="plagiarism-problem-grid">
+                        {% for problem in report.problems %}
+                        <div class="plagiarism-problem-card">
+                            <div class="plagiarism-problem-info">
+                                <h6 class="plagiarism-problem-name">{{ problem.docId }} - {{ problem.title }}</h6>
+                                <p class="plagiarism-problem-desc">{{ _('点击查看该题目的所有提交') }}</p>
+                            </div>
+                            <a href="/plagiarism/contest/{{ contest._id }}/{{ problem.docId }}" 
+                               class="plagiarism-problem-link">{{ _('查看提交') }}</a>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
                 {% endif %}
             </div>
             {% elif report.status == 'processing' %}
@@ -495,6 +513,79 @@
     margin: 0;
 }
 
+/* 题目列表样式 */
+.plagiarism-problem-list {
+    margin-top: 24px;
+    padding: 20px;
+    background: #f8f9fa;
+    border: 1px solid #e1e8ed;
+    border-radius: 8px;
+}
+
+.plagiarism-problem-list-title {
+    color: #2c3e50;
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    text-align: center;
+}
+
+.plagiarism-problem-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.plagiarism-problem-card {
+    background: #ffffff;
+    border: 1px solid #e1e8ed;
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s ease;
+}
+
+.plagiarism-problem-card:hover {
+    border-color: #3498db;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(52, 152, 219, 0.2);
+}
+
+.plagiarism-problem-info {
+    flex: 1;
+}
+
+.plagiarism-problem-name {
+    color: #2c3e50;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.plagiarism-problem-desc {
+    color: #7f8c8d;
+    font-size: 0.75rem;
+    margin: 0;
+}
+
+.plagiarism-problem-link {
+    background: #3498db;
+    color: white;
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.plagiarism-problem-link:hover {
+    background: #2980b9;
+    transform: translateY(-1px);
+}
+
 .plagiarism-processing {
     display: flex;
     align-items: center;
@@ -591,6 +682,16 @@
         flex-direction: column;
         align-items: flex-start;
         gap: 8px;
+    }
+    
+    .plagiarism-problem-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .plagiarism-problem-card {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
     }
 }
 </style>
