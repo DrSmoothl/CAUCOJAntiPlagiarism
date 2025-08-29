@@ -92,11 +92,12 @@ export class EnhancedCodeSimilarityAnalyzer {
         if (!this.jplagInstances.has(language)) {
             const options: Partial<JPlagOptions> = {
                 language,
-                minimumTokenMatch: 8,      // 较低的最小匹配长度，提高敏感度
-                minimumSimilarity: 0.05,   // 较低的最小相似度阈值
+                minimumTokenMatch: 12,     // 使用原始JPlag推荐值
+                minimumSimilarity: 0.1,    // 提高阈值，减少误报
                 ignoreComments: true,      // 忽略注释
                 ignoreCase: false,         // 不忽略大小写
-                normalizeWhitespace: true  // 标准化空白
+                normalizeWhitespace: true, // 标准化空白
+                extractStructuralTokensOnly: true  // 启用结构化token模式
             };
             this.jplagInstances.set(language, new SimpleJPlag(options));
         }
