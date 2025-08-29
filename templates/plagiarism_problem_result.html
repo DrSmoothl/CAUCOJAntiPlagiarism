@@ -138,6 +138,44 @@
                 <i class="icon icon-check-circle"></i>
                 <h3>{{ _('未发现相似代码') }}</h3>
                 <p>{{ _('该语言下的所有提交均为原创代码') }}</p>
+                
+                <!-- 手动对比功能 -->
+                {% if result.allSubmissions and result.allSubmissions.length > 1 %}
+                <div class="plagiarism-manual-compare">
+                    <h4>{{ _('手动对比提交') }}</h4>
+                    <p>{{ _('选择两个提交进行手动对比') }}</p>
+                    <div class="plagiarism-manual-selectors">
+                        <div class="plagiarism-submission-selector">
+                            <label>{{ _('提交A') }}:</label>
+                            <select id="submission1-{{ result.language }}" class="plagiarism-select">
+                                <option value="">{{ _('选择提交...') }}</option>
+                                {% for submission in result.allSubmissions %}
+                                <option value="{{ submission._id }}">
+                                    {{ submission.user.uname if submission.user else 'User ' + submission.uid }} 
+                                    ({{ datetimeSpan(submission.judgeAt) | safe }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="plagiarism-submission-selector">
+                            <label>{{ _('提交B') }}:</label>
+                            <select id="submission2-{{ result.language }}" class="plagiarism-select">
+                                <option value="">{{ _('选择提交...') }}</option>
+                                {% for submission in result.allSubmissions %}
+                                <option value="{{ submission._id }}">
+                                    {{ submission.user.uname if submission.user else 'User ' + submission.uid }} 
+                                    ({{ datetimeSpan(submission.judgeAt) | safe }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <button class="plagiarism-manual-compare-btn" onclick="manualCompare('{{ result.language }}')">
+                        <i class="icon icon-code"></i>
+                        {{ _('开始对比') }}
+                    </button>
+                </div>
+                {% endif %}
             </div>
             {% endif %}
         </div>
@@ -308,6 +346,27 @@ function toggleSegments(button) {
 function openCodeComparison(sub1, sub2) {
     const url = `/plagiarism/contest/${contestId}/${problemId}/compare/${sub1}/${sub2}`;
     window.open(url, '_blank');
+}
+
+// 手动对比提交
+function manualCompare(language) {
+    const sub1Select = document.getElementById(`submission1-${language}`);
+    const sub2Select = document.getElementById(`submission2-${language}`);
+    
+    const sub1 = sub1Select.value;
+    const sub2 = sub2Select.value;
+    
+    if (!sub1 || !sub2) {
+        alert('请选择两个不同的提交进行对比');
+        return;
+    }
+    
+    if (sub1 === sub2) {
+        alert('请选择两个不同的提交');
+        return;
+    }
+    
+    openCodeComparison(sub1, sub2);
 }
 
 // 获取相似度颜色
@@ -793,6 +852,93 @@ document.addEventListener('DOMContentLoaded', function() {
     margin-bottom: 8px;
 }
 
+.plagiarism-empty-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #27ae60;
+    margin-bottom: 8px;
+}
+
+/* 手动对比样式 */
+.plagiarism-manual-compare {
+    margin-top: 24px;
+    padding: 20px;
+    background: #f8f9fa;
+    border: 1px solid #e1e8ed;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.plagiarism-manual-compare h4 {
+    color: #2c3e50;
+    margin-bottom: 8px;
+}
+
+.plagiarism-manual-compare p {
+    color: #7f8c8d;
+    margin-bottom: 20px;
+}
+
+.plagiarism-manual-selectors {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.plagiarism-submission-selector {
+    text-align: left;
+}
+
+.plagiarism-submission-selector label {
+    display: block;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 6px;
+}
+
+.plagiarism-select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #e1e8ed;
+    border-radius: 6px;
+    background: white;
+    color: #2c3e50;
+    font-size: 0.875rem;
+    cursor: pointer;
+}
+
+.plagiarism-select:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.plagiarism-manual-compare-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #3498db;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.plagiarism-manual-compare-btn:hover {
+    background: #2980b9;
+    transform: translateY(-1px);
+}
+
+.plagiarism-manual-compare-btn:disabled {
+    background: #bdc3c7;
+    cursor: not-allowed;
+    transform: none;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
     .plagiarism-result-container {
@@ -818,6 +964,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     .plagiarism-user-grid {
         grid-template-columns: 1fr;
+    }
+    
+    .plagiarism-manual-selectors {
+        grid-template-columns: 1fr;
+        gap: 12px;
     }
     
     .plagiarism-pair-summary {

@@ -154,7 +154,7 @@ class CodeSimilarityAnalyzer {
     }
     
     // 找到相似的代码段
-    static findSimilarSegments(code1: string, code2: string, lang: string, threshold: number = 0.7): SimilarityDetail[] {
+    static findSimilarSegments(code1: string, code2: string, lang: string, threshold: number = 0.4): SimilarityDetail[] {
         const lines1 = code1.split('\n');
         const lines2 = code2.split('\n');
         const details: SimilarityDetail[] = [];
@@ -234,56 +234,54 @@ const plagiarismModel = {
                 const langGroups = this.groupByLanguage(submissions);
                 
                 for (const [language, langSubmissions] of Object.entries(langGroups)) {
-                    if ((langSubmissions as Submission[]).length < 2) continue; // 至少需要2个提交才能查重
+                    if ((langSubmissions as Submission[]).length < 1) continue; // 至少需要1个提交
                     
                     const pairs: SimilarityPair[] = [];
                     
-                    // 两两比较
-                    for (let i = 0; i < (langSubmissions as Submission[]).length; i++) {
-                        for (let j = i + 1; j < (langSubmissions as Submission[]).length; j++) {
-                            const sub1 = (langSubmissions as Submission[])[i];
-                            const sub2 = (langSubmissions as Submission[])[j];
-                            
-                            if (sub1.uid === sub2.uid) continue; // 跳过同一用户的提交
-                            
-                            const similarity = CodeSimilarityAnalyzer.calculateSimilarity(
-                                sub1.code, sub2.code, language
-                            );
-                            
-                            if (similarity > 0.6) { // 相似度阈值
-                                const details = CodeSimilarityAnalyzer.findSimilarSegments(
+                    // 如果有多个提交，进行两两比较
+                    if ((langSubmissions as Submission[]).length >= 2) {
+                        // 两两比较
+                        for (let i = 0; i < (langSubmissions as Submission[]).length; i++) {
+                            for (let j = i + 1; j < (langSubmissions as Submission[]).length; j++) {
+                                const sub1 = (langSubmissions as Submission[])[i];
+                                const sub2 = (langSubmissions as Submission[])[j];
+                                
+                                if (sub1.uid === sub2.uid) continue; // 跳过同一用户的提交
+                                
+                                const similarity = CodeSimilarityAnalyzer.calculateSimilarity(
                                     sub1.code, sub2.code, language
                                 );
                                 
-                                pairs.push({
-                                    submission1: sub1._id,
-                                    submission2: sub2._id,
-                                    user1: sub1.uid,
-                                    user2: sub2.uid,
-                                    similarity,
-                                    details
-                                });
+                                if (similarity > 0.3) { // 相似度阈值 (降低以便测试)
+                                    const details = CodeSimilarityAnalyzer.findSimilarSegments(
+                                        sub1.code, sub2.code, language
+                                    );
+                                    
+                                    pairs.push({
+                                        submission1: sub1._id,
+                                        submission2: sub2._id,
+                                        user1: sub1.uid,
+                                        user2: sub2.uid,
+                                        similarity,
+                                        details
+                                    });
+                                }
                             }
                         }
                     }
                     
-                    if (pairs.length > 0) {
-                        // 获取独特的用户数量
-                        const uniqueUsers = new Set<number>();
-                        pairs.forEach(pair => {
-                            uniqueUsers.add(pair.user1);
-                            uniqueUsers.add(pair.user2);
-                        });
+                    // 无论是否有相似对，都创建结果条目（这样用户总能查看提交）
+                    const uniqueUsers = new Set<number>();
+                    (langSubmissions as Submission[]).forEach(sub => uniqueUsers.add(sub.uid));
 
-                        results.push({
-                            problemId,
-                            language,
-                            languageName: this.getLanguageDisplayName(language),
-                            submissionCount: (langSubmissions as Submission[]).length,
-                            userCount: uniqueUsers.size,
-                            pairs: pairs.sort((a, b) => b.similarity - a.similarity)
-                        });
-                    }
+                    results.push({
+                        problemId,
+                        language,
+                        languageName: this.getLanguageDisplayName(language),
+                        submissionCount: (langSubmissions as Submission[]).length,
+                        userCount: uniqueUsers.size,
+                        pairs: pairs.sort((a, b) => b.similarity - a.similarity)
+                    });
                 }
             }
             
@@ -664,7 +662,7 @@ class PlagiarismProblemDetailHandler extends Handler {
             ) || [];
         }
         
-        // 补充用户信息
+        // 补充用户信息和所有提交信息
         for (const result of results) {
             for (const pair of result.pairs) {
                 const user1 = await plagiarismModel.getUserInfo(pair.user1);
@@ -672,6 +670,29 @@ class PlagiarismProblemDetailHandler extends Handler {
                 (pair as any).user1Info = user1;
                 (pair as any).user2Info = user2;
             }
+            
+            // 获取该语言的所有提交，以便在没有相似对时也能展示
+            const allSubmissions = await recordCol.find({
+                contest: contestId as any,
+                pid: parseInt(problemId),
+                status: 1,
+                code: { $exists: true, $ne: '' }
+            }).toArray() as unknown as Submission[];
+            
+            const langGroups = plagiarismModel.groupByLanguage(allSubmissions);
+            const langSubmissions = langGroups[result.language] || [];
+            
+            // 为每个提交添加用户信息
+            const submissionsWithUsers: any[] = [];
+            for (const submission of langSubmissions) {
+                const user = await plagiarismModel.getUserInfo(submission.uid);
+                submissionsWithUsers.push({
+                    ...submission,
+                    user
+                });
+            }
+            
+            (result as any).allSubmissions = submissionsWithUsers;
         }
         
         this.response.template = 'plagiarism_problem_result.html';

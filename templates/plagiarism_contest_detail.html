@@ -128,6 +128,11 @@
                             <i class="icon icon-check"></i>
                             {{ _('未发现相似代码') }}
                         </div>
+                        <!-- 即使没有相似代码，也提供查看详细的选项 -->
+                        <div class="plagiarism-result-actions">
+                            <a href="/plagiarism/contest/{{ contest._id }}/{{ result.problemId }}" 
+                               class="plagiarism-link">{{ _('查看所有提交') }}</a>
+                        </div>
                         {% endif %}
                     </div>
                     {% endfor %}
