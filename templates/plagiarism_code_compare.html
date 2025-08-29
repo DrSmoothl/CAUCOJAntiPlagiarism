@@ -1,4 +1,19 @@
-{% set page_n                <div class="plagiarism-similarity-value">
+{% set page_name = "plagiarism_code_compare" %}
+{% extends "layout/basic.html" %}
+
+{% block content %}
+<div class="plagiarism-compare-container">
+    <div class="plagiarism-compare-header">
+        <h1 class="plagiarism-compare-title">{{ title }}</h1>
+        
+        <div class="plagiarism-compare-info">
+            <div class="plagiarism-compare-problem">
+                <span class="plagiarism-problem-badge">{{ _('题目') }}</span>
+                <span class="plagiarism-problem-title">{{ problem.title }}</span>
+            </div>
+            
+            <div class="plagiarism-compare-similarity">
+                <div class="plagiarism-similarity-badge" id="similarityBadge">
                     {{ (similarity * 100) | round(1) }}%
                 </div>
                 <span class="plagiarism-similarity-label">{{ _('综合相似度') }}</span>
