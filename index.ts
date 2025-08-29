@@ -489,7 +489,49 @@ const plagiarismModel = {
 
     // 获取提交详情
     async getSubmission(submissionId: string): Promise<Submission | null> {
-        return await recordCol.findOne({ _id: submissionId as any }) as Submission | null;
+        // 方式1: 直接查询
+        try {
+            const submission = await recordCol.findOne({ _id: submissionId as any }) as Submission | null;
+            if (submission) {
+                console.log(`直接查询找到提交: ${submissionId}`);
+                return submission;
+            }
+        } catch (error) {
+            console.log(`直接查询提交失败: ${error}`);
+        }
+        
+        // 方式2: 优化的字符串匹配
+        try {
+            console.log(`尝试优化查询提交: ${submissionId}`);
+            
+            // 先尝试限制查询范围
+            const recentSubmissions = await recordCol.find({
+                code: { $exists: true, $ne: '' }
+            }).limit(1000).toArray(); // 限制查询最近1000个有代码的提交
+            
+            const submission = recentSubmissions.find(sub => sub._id?.toString() === submissionId.toString());
+            
+            if (submission) {
+                console.log(`优化查询找到提交: ${submissionId}`);
+                return submission as unknown as Submission;
+            }
+            
+            // 如果限制查询没找到，再查询全部
+            console.log(`限制查询未找到，尝试全量查询...`);
+            const allSubmissions = await recordCol.find({}).toArray();
+            const fullSubmission = allSubmissions.find(sub => sub._id?.toString() === submissionId.toString());
+            
+            if (fullSubmission) {
+                console.log(`全量查询找到提交: ${submissionId}`);
+                return fullSubmission as unknown as Submission;
+            } else {
+                console.log(`全量查询未找到提交: ${submissionId}`);
+                return null;
+            }
+        } catch (error) {
+            console.log(`字符串匹配查询提交也失败: ${error}`);
+            return null;
+        }
     },
     
     // 获取所有比赛列表
