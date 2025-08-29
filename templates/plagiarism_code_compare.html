@@ -69,15 +69,10 @@
         <a href="/plagiarism/contest/{{ contest._id }}/{{ problem.docId }}" class="plagiarism-nav-btn plagiarism-nav-btn-secondary">
             <i class="icon icon-arrow-left"></i>
             {{ _('返回题目查重') }}
-        </a>rism_code_compare" %}
-{% extends "layout/basic.html" %}
+        </a>
+    </div>
 
-{% block content %}
-<div class="plagiarism-compare-container">
-    <div class="plagiarism-compare-header">
-        <h1 class="plagiarism-compare-title">{{ _('代码对比详情') }}</h1>
-        <div class="plagiarism-compare-info">
-            <div class="plagiarism-compare-problem">
+    <!-- 用户信息对比 -->
                 <span class="plagiarism-problem-badge">{{ problem.docId }}</span>
                 <span class="plagiarism-problem-title">{{ problem.title }}</span>
             </div>
