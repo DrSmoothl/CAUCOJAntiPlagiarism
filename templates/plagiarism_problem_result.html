@@ -82,33 +82,41 @@
                 </div>
                 
                 <div class="plagiarism-user-grid">
-                    {% set uniqueUsers = {} %}
+                    {% set uniqueUsers = [] %}
+                    {% set processedUsers = [] %}
+                    
                     {% for pair in result.pairs %}
-                        {% set dummy = uniqueUsers.__setitem__(pair.user1, pair.user1Info) %}
-                        {% set dummy = uniqueUsers.__setitem__(pair.user2, pair.user2Info) %}
+                        {% if pair.user1 not in processedUsers %}
+                            {% set dummy = uniqueUsers.push({id: pair.user1, info: pair.user1Info}) %}
+                            {% set dummy = processedUsers.push(pair.user1) %}
+                        {% endif %}
+                        {% if pair.user2 not in processedUsers %}
+                            {% set dummy = uniqueUsers.push({id: pair.user2, info: pair.user2Info}) %}
+                            {% set dummy = processedUsers.push(pair.user2) %}
+                        {% endif %}
                     {% endfor %}
                     
-                    {% for userId, userInfo in uniqueUsers %}
+                    {% for user in uniqueUsers %}
                     <div class="plagiarism-user-card" 
-                         onclick="selectBaseUser('{{ result.language }}', {{ userId }})">
+                         onclick="selectBaseUser('{{ result.language }}', {{ user.id }})">
                         <div class="plagiarism-user-avatar">
-                            {% if userInfo and userInfo.avatar %}
-                                <img src="{{ userInfo.avatar }}" alt="{{ userInfo.uname }}">
+                            {% if user.info and user.info.avatar %}
+                                <img src="{{ user.info.avatar }}" alt="{{ user.info.uname }}">
                             {% else %}
                                 <div class="plagiarism-default-avatar">
-                                    {{ (userInfo.uname if userInfo else 'User ' + userId)[0] | upper }}
+                                    {{ (user.info.uname if user.info else 'User ' + user.id)[0] | upper }}
                                 </div>
                             {% endif %}
                         </div>
                         <div class="plagiarism-user-info">
                             <div class="plagiarism-user-name">
-                                {{ userInfo.uname if userInfo else 'User ' + userId }}
+                                {{ user.info.uname if user.info else 'User ' + user.id }}
                             </div>
-                            <div class="plagiarism-user-id">ID: {{ userId }}</div>
+                            <div class="plagiarism-user-id">#{{ user.id }}</div>
                             <div class="plagiarism-user-related">
                                 {% set relatedCount = 0 %}
                                 {% for pair in result.pairs %}
-                                    {% if pair.user1 == userId or pair.user2 == userId %}
+                                    {% if pair.user1 == user.id or pair.user2 == user.id %}
                                         {% set relatedCount = relatedCount + 1 %}
                                     {% endif %}
                                 {% endfor %}
