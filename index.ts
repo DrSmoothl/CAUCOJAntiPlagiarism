@@ -2,6 +2,7 @@ import {
     db, Context, UserModel, Handler, NotFoundError, ForbiddenError, 
     PRIV, Types, moment
 } from 'hydrooj';
+import { EnhancedCodeSimilarityAnalyzer } from './enhanced-similarity-analyzer';
 
 // 集合定义
 const documentsCol = db.collection('document');
@@ -88,105 +89,104 @@ declare module 'hydrooj' {
 }
 
 // 代码相似度算法
+// 使用增强版查重算法分析器
+// 原有的CodeSimilarityAnalyzer类已被EnhancedCodeSimilarityAnalyzer替代
 class CodeSimilarityAnalyzer {
-    // 简化代码：移除注释、多余空格、统一格式
-    static normalizeCode(code: string, lang: string): string {
-        let normalized = code;
-        
-        // 移除单行注释
-        if (lang.includes('cc') || lang.includes('cpp') || lang.includes('java')) {
-            normalized = normalized.replace(/\/\/.*$/gm, '');
-            normalized = normalized.replace(/\/\*[\s\S]*?\*\//g, '');
-        } else if (lang.includes('py')) {
-            normalized = normalized.replace(/#.*$/gm, '');
-        }
-        
-        // 移除多余空格和空行
-        normalized = normalized.replace(/\s+/g, ' ').trim();
-        normalized = normalized.replace(/\n\s*\n/g, '\n');
-        
-        return normalized;
-    }
-    
-    // 计算两个字符串的编辑距离
-    static levenshteinDistance(str1: string, str2: string): number {
-        const matrix: number[][] = [];
-        const m = str1.length;
-        const n = str2.length;
-        
-        for (let i = 0; i <= m; i++) {
-            matrix[i] = [i];
-        }
-        
-        for (let j = 0; j <= n; j++) {
-            matrix[0][j] = j;
-        }
-        
-        for (let i = 1; i <= m; i++) {
-            for (let j = 1; j <= n; j++) {
-                if (str1[i - 1] === str2[j - 1]) {
-                    matrix[i][j] = matrix[i - 1][j - 1];
-                } else {
-                    matrix[i][j] = Math.min(
-                        matrix[i - 1][j] + 1,      // deletion
-                        matrix[i][j - 1] + 1,      // insertion
-                        matrix[i - 1][j - 1] + 1   // substitution
-                    );
-                }
-            }
-        }
-        
-        return matrix[m][n];
-    }
-    
-    // 计算代码相似度
+    // 兼容原有接口的相似度计算
     static calculateSimilarity(code1: string, code2: string, lang: string): number {
-        const normalized1 = this.normalizeCode(code1, lang);
-        const normalized2 = this.normalizeCode(code2, lang);
-        
-        if (normalized1.length === 0 && normalized2.length === 0) return 1.0;
-        if (normalized1.length === 0 || normalized2.length === 0) return 0.0;
-        
-        const distance = this.levenshteinDistance(normalized1, normalized2);
-        const maxLength = Math.max(normalized1.length, normalized2.length);
-        
-        return 1 - (distance / maxLength);
+        return EnhancedCodeSimilarityAnalyzer.calculateSimilarity(code1, code2, lang);
     }
     
-    // 找到相似的代码段
+    // 兼容原有接口的相似段落查找
     static findSimilarSegments(code1: string, code2: string, lang: string, threshold: number = 0.4): SimilarityDetail[] {
-        const lines1 = code1.split('\n');
-        const lines2 = code2.split('\n');
-        const details: SimilarityDetail[] = [];
+        const enhancedSegments = EnhancedCodeSimilarityAnalyzer.findSimilarSegments(code1, code2, lang, threshold);
         
-        const windowSize = 5; // 比较窗口大小
-        
-        for (let i = 0; i <= lines1.length - windowSize; i++) {
-            for (let j = 0; j <= lines2.length - windowSize; j++) {
-                const segment1 = lines1.slice(i, i + windowSize).join('\n');
-                const segment2 = lines2.slice(j, j + windowSize).join('\n');
-                
-                const similarity = this.calculateSimilarity(segment1, segment2, lang);
-                
-                if (similarity >= threshold) {
-                    details.push({
-                        startLine1: i + 1,
-                        endLine1: i + windowSize,
-                        startLine2: j + 1,
-                        endLine2: j + windowSize,
-                        text1: segment1,
-                        text2: segment2,
-                        similarity: similarity
-                    });
-                }
-            }
-        }
-        
-        return details;
+        // 转换为原有格式
+        return enhancedSegments.map((segment: any) => ({
+            startLine1: segment.startLine1,
+            endLine1: segment.endLine1,
+            startLine2: segment.startLine2,
+            endLine2: segment.endLine2,
+            text1: segment.codeFragment1 || '',
+            text2: segment.codeFragment2 || '',
+            similarity: segment.similarity
+        }));
+    }
+    
+    // 增强版分析方法（新增）
+    static getDetailedAnalysis(code1: string, code2: string, lang?: string) {
+        return EnhancedCodeSimilarityAnalyzer.getDetailedAnalysis(code1, code2, lang);
+    }
+    
+    // 增强版相似度计算（新增）
+    static calculateEnhancedSimilarity(code1: string, code2: string, lang?: string) {
+        return EnhancedCodeSimilarityAnalyzer.calculateEnhancedSimilarity(code1, code2, lang);
     }
 }
 
 // 查重数据模型
+// 提交缓存系统
+class SubmissionCache {
+    private cache = new Map<string, any>();
+    private maxSize = 1000; // 最大缓存数量
+    private hitCount = 0;
+    private missCount = 0;
+    
+    get(id: string): any | null {
+        const result = this.cache.get(id);
+        if (result) {
+            this.hitCount++;
+            console.log(`缓存命中: ${id} (命中率: ${(this.hitCount / (this.hitCount + this.missCount) * 100).toFixed(1)}%)`);
+            return result;
+        }
+        this.missCount++;
+        return null;
+    }
+    
+    set(id: string, submission: any): void {
+        if (this.cache.size >= this.maxSize) {
+            // 删除最早的条目
+            const firstKey = this.cache.keys().next().value;
+            this.cache.delete(firstKey);
+        }
+        this.cache.set(id, submission);
+    }
+    
+    getBatch(ids: string[]): Map<string, any> {
+        const result = new Map<string, any>();
+        const notFoundIds: string[] = [];
+        
+        for (const id of ids) {
+            const cached = this.get(id);
+            if (cached) {
+                result.set(id, cached);
+            } else {
+                notFoundIds.push(id);
+            }
+        }
+        
+        console.log(`批量查询: 命中 ${result.size}/${ids.length}, 需要查询 ${notFoundIds.length}`);
+        return result;
+    }
+    
+    getStats(): { size: number, hitCount: number, missCount: number, hitRate: number } {
+        return {
+            size: this.cache.size,
+            hitCount: this.hitCount,
+            missCount: this.missCount,
+            hitRate: this.hitCount / (this.hitCount + this.missCount) * 100
+        };
+    }
+    
+    clear(): void {
+        this.cache.clear();
+        this.hitCount = 0;
+        this.missCount = 0;
+    }
+}
+
+const submissionCache = new SubmissionCache();
+
 const plagiarismModel = {
     // 创建查重报告
     async createReport(contestId: string, problemIds: number[], createdBy: number): Promise<string> {
@@ -274,6 +274,12 @@ const plagiarismModel = {
                 
                 console.log(`题目 ${problemId} 最终找到 ${submissions.length} 个提交`);
                 
+                // 预缓存所有提交到缓存系统中
+                console.log(`预缓存 ${submissions.length} 个提交到缓存系统`);
+                for (const submission of submissions) {
+                    submissionCache.set(submission._id.toString(), submission as unknown as Submission);
+                }
+                
                 // 按语言分组
                 const langGroups = this.groupByLanguage(submissions);
                 console.log(`题目 ${problemId} 按语言分组: ${Object.keys(langGroups).join(', ')}`);
@@ -352,6 +358,9 @@ const plagiarismModel = {
             
             // 更新结果
             console.log(`查重完成，共处理 ${results.length} 个语言分组`);
+            const cacheStats = submissionCache.getStats();
+            console.log(`缓存统计: 大小=${cacheStats.size}, 命中率=${cacheStats.hitRate.toFixed(1)}%`);
+            
             await plagiarismCol.updateOne(
                 { _id: reportId },
                 { 
@@ -489,11 +498,18 @@ const plagiarismModel = {
 
     // 获取提交详情
     async getSubmission(submissionId: string): Promise<Submission | null> {
+        // 首先检查缓存
+        const cached = submissionCache.get(submissionId);
+        if (cached) {
+            return cached;
+        }
+        
         // 方式1: 直接查询
         try {
             const submission = await recordCol.findOne({ _id: submissionId as any }) as Submission | null;
             if (submission) {
                 console.log(`直接查询找到提交: ${submissionId}`);
+                submissionCache.set(submissionId, submission);
                 return submission;
             }
         } catch (error) {
@@ -513,7 +529,9 @@ const plagiarismModel = {
             
             if (submission) {
                 console.log(`优化查询找到提交: ${submissionId}`);
-                return submission as unknown as Submission;
+                const result = submission as unknown as Submission;
+                submissionCache.set(submissionId, result);
+                return result;
             }
             
             // 如果限制查询没找到，再查询全部
@@ -523,7 +541,9 @@ const plagiarismModel = {
             
             if (fullSubmission) {
                 console.log(`全量查询找到提交: ${submissionId}`);
-                return fullSubmission as unknown as Submission;
+                const result = fullSubmission as unknown as Submission;
+                submissionCache.set(submissionId, result);
+                return result;
             } else {
                 console.log(`全量查询未找到提交: ${submissionId}`);
                 return null;
@@ -532,6 +552,72 @@ const plagiarismModel = {
             console.log(`字符串匹配查询提交也失败: ${error}`);
             return null;
         }
+    },
+
+    // 批量查询提交，优化性能
+    async getSubmissionsBatch(submissionIds: string[]): Promise<Map<string, Submission>> {
+        const result = new Map<string, Submission>();
+        
+        // 首先从缓存中获取
+        const cachedResults = submissionCache.getBatch(submissionIds);
+        for (const [id, submission] of cachedResults) {
+            result.set(id, submission);
+        }
+        
+        // 找出需要查询的ID
+        const needQueryIds = submissionIds.filter(id => !result.has(id));
+        
+        if (needQueryIds.length === 0) {
+            console.log(`批量查询完成: 全部来自缓存`);
+            return result;
+        }
+        
+        console.log(`批量查询: 需要从数据库查询 ${needQueryIds.length} 个提交`);
+        
+        try {
+            // 尝试批量直接查询
+            const directResults = await recordCol.find({
+                _id: { $in: needQueryIds.map(id => id as any) }
+            }).toArray();
+            
+            for (const submission of directResults) {
+                const id = submission._id.toString();
+                const result_submission = submission as unknown as Submission;
+                result.set(id, result_submission);
+                submissionCache.set(id, result_submission);
+                
+                // 从需要查询的列表中移除已找到的
+                const index = needQueryIds.indexOf(id);
+                if (index > -1) {
+                    needQueryIds.splice(index, 1);
+                }
+            }
+            
+            console.log(`直接批量查询找到 ${directResults.length} 个提交`);
+        } catch (error) {
+            console.log(`批量直接查询失败: ${error}`);
+        }
+        
+        // 对于仍然没找到的，使用字符串匹配
+        if (needQueryIds.length > 0) {
+            console.log(`字符串匹配查询剩余 ${needQueryIds.length} 个提交`);
+            
+            const allSubmissions = await recordCol.find({
+                code: { $exists: true, $ne: '' }
+            }).toArray();
+            
+            for (const id of needQueryIds) {
+                const submission = allSubmissions.find(sub => sub._id?.toString() === id);
+                if (submission) {
+                    const result_submission = submission as unknown as Submission;
+                    result.set(id, result_submission);
+                    submissionCache.set(id, result_submission);
+                }
+            }
+        }
+        
+        console.log(`批量查询完成: 总共找到 ${result.size}/${submissionIds.length} 个提交`);
+        return result;
     },
     
     // 获取所有比赛列表
@@ -875,26 +961,48 @@ class PlagiarismCodeCompareHandler extends Handler {
         }
         const problem = problems[0];
         
-        // 获取两个提交的详情
-        const submission1 = await plagiarismModel.getSubmission(sub1);
-        const submission2 = await plagiarismModel.getSubmission(sub2);
+        // 使用批量查询获取两个提交的详情，提高性能
+        console.log(`批量查询提交: ${sub1}, ${sub2}`);
+        const submissionMap = await plagiarismModel.getSubmissionsBatch([sub1, sub2]);
+        
+        const submission1 = submissionMap.get(sub1);
+        const submission2 = submissionMap.get(sub2);
         
         if (!submission1 || !submission2) {
+            console.log(`提交查询结果: ${sub1} -> ${submission1 ? '找到' : '未找到'}, ${sub2} -> ${submission2 ? '找到' : '未找到'}`);
             throw new NotFoundError('提交不存在');
         }
+        
+        console.log(`成功获取提交: ${sub1}, ${sub2}`);
         
         // 获取用户信息
         const user1 = await plagiarismModel.getUserInfo(submission1.uid);
         const user2 = await plagiarismModel.getUserInfo(submission2.uid);
         
-        // 计算相似度和详细对比
-        const similarity = CodeSimilarityAnalyzer.calculateSimilarity(
+        // 使用增强版算法进行详细分析
+        const detailedAnalysis = CodeSimilarityAnalyzer.getDetailedAnalysis(
             submission1.code, submission2.code, submission1.lang
         );
         
-        const details = CodeSimilarityAnalyzer.findSimilarSegments(
-            submission1.code, submission2.code, submission1.lang
-        );
+        console.log(`增强版分析结果:`);
+        console.log(`- 原始相似度: ${detailedAnalysis.result.originalSimilarity.toFixed(3)}`);
+        console.log(`- JPlag相似度: ${detailedAnalysis.result.jplagSimilarity.toFixed(3)}`);
+        console.log(`- 组合相似度: ${detailedAnalysis.result.combinedSimilarity.toFixed(3)}`);
+        console.log(`- 算法选择: ${detailedAnalysis.result.algorithm}`);
+        console.log(`- 置信度: ${detailedAnalysis.result.confidence.toFixed(3)}`);
+        console.log(`- 相似段落数: ${detailedAnalysis.result.details.length}`);
+        
+        // 兼容原有接口
+        const similarity = detailedAnalysis.result.combinedSimilarity;
+        const details = detailedAnalysis.result.details.map(detail => ({
+            startLine1: detail.startLine1,
+            endLine1: detail.endLine1,
+            startLine2: detail.startLine2,
+            endLine2: detail.endLine2,
+            text1: detail.codeFragment1,
+            text2: detail.codeFragment2,
+            similarity: detail.similarity
+        }));
         
         // 高亮重复部分
         const highlightedCode1 = this.highlightSimilarParts(submission1.code, details, 1);
@@ -916,6 +1024,20 @@ class PlagiarismCodeCompareHandler extends Handler {
             },
             similarity,
             details,
+            // 增强版分析结果
+            analysis: {
+                originalSimilarity: detailedAnalysis.result.originalSimilarity,
+                jplagSimilarity: detailedAnalysis.result.jplagSimilarity,
+                combinedSimilarity: detailedAnalysis.result.combinedSimilarity,
+                confidence: detailedAnalysis.result.confidence,
+                algorithm: detailedAnalysis.result.algorithm,
+                recommendations: detailedAnalysis.recommendations,
+                jplagDetails: {
+                    totalTokens1: detailedAnalysis.jplagDetails.totalTokens1,
+                    totalTokens2: detailedAnalysis.jplagDetails.totalTokens2,
+                    matchedTokens: detailedAnalysis.jplagDetails.matchedTokens
+                }
+            },
             title: `代码对比 - ${problem.title}`
         };
     }

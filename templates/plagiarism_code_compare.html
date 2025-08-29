@@ -1,4 +1,60 @@
-{% set page_name = "plagiarism_code_compare" %}
+{% set page_n                <div class="plagiarism-similarity-value">
+                    {{ (similarity * 100) | round(1) }}%
+                </div>
+                <span class="plagiarism-similarity-label">{{ _('综合相似度') }}</span>
+            </div>
+            
+            <!-- 增强版分析结果 -->
+            {% if analysis %}
+            <div class="plagiarism-analysis-panel">
+                <h3 class="plagiarism-analysis-title">{{ _('详细分析') }}</h3>
+                <div class="plagiarism-analysis-metrics">
+                    <div class="plagiarism-metric">
+                        <span class="plagiarism-metric-label">{{ _('原始算法') }}:</span>
+                        <span class="plagiarism-metric-value">{{ (analysis.originalSimilarity * 100) | round(1) }}%</span>
+                    </div>
+                    <div class="plagiarism-metric">
+                        <span class="plagiarism-metric-label">{{ _('JPlag算法') }}:</span>
+                        <span class="plagiarism-metric-value">{{ (analysis.jplagSimilarity * 100) | round(1) }}%</span>
+                    </div>
+                    <div class="plagiarism-metric">
+                        <span class="plagiarism-metric-label">{{ _('置信度') }}:</span>
+                        <span class="plagiarism-metric-value">{{ (analysis.confidence * 100) | round(1) }}%</span>
+                    </div>
+                    <div class="plagiarism-metric">
+                        <span class="plagiarism-metric-label">{{ _('算法选择') }}:</span>
+                        <span class="plagiarism-metric-value">{{ analysis.algorithm }}</span>
+                    </div>
+                </div>
+                
+                {% if analysis.jplagDetails %}
+                <div class="plagiarism-token-info">
+                    <span>{{ _('Token统计') }}: 
+                        {{ analysis.jplagDetails.matchedTokens }}/{{ analysis.jplagDetails.totalTokens1 }}+{{ analysis.jplagDetails.totalTokens2 }}
+                    </span>
+                </div>
+                {% endif %}
+                
+                {% if analysis.recommendations and analysis.recommendations.length > 0 %}
+                <div class="plagiarism-recommendations">
+                    <h4>{{ _('分析建议') }}:</h4>
+                    <ul>
+                        {% for recommendation in analysis.recommendations %}
+                        <li>{{ recommendation }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="plagiarism-navigation">
+        <a href="/plagiarism/contest/{{ contest._id }}/{{ problem.docId }}" class="plagiarism-nav-btn plagiarism-nav-btn-secondary">
+            <i class="icon icon-arrow-left"></i>
+            {{ _('返回题目查重') }}
+        </a>rism_code_compare" %}
 {% extends "layout/basic.html" %}
 
 {% block content %}
@@ -374,6 +430,84 @@ function initializeCodeHighlights() {
 .plagiarism-nav-btn-secondary:hover {
     background: #3498db;
     color: white;
+}
+
+/* 增强版分析面板样式 */
+.plagiarism-analysis-panel {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 16px 0;
+}
+
+.plagiarism-analysis-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 12px;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 6px;
+}
+
+.plagiarism-analysis-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.plagiarism-metric {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: white;
+    border-radius: 6px;
+    border-left: 3px solid #3498db;
+}
+
+.plagiarism-metric-label {
+    font-weight: 500;
+    color: #495057;
+}
+
+.plagiarism-metric-value {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.plagiarism-token-info {
+    background: #e3f2fd;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    color: #1976d2;
+    margin-bottom: 12px;
+}
+
+.plagiarism-recommendations {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 6px;
+    padding: 12px;
+}
+
+.plagiarism-recommendations h4 {
+    margin: 0 0 8px 0;
+    color: #856404;
+    font-size: 0.95rem;
+}
+
+.plagiarism-recommendations ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.plagiarism-recommendations li {
+    color: #856404;
+    font-size: 0.9rem;
+    margin-bottom: 4px;
 }
 
 /* 用户对比样式 */
