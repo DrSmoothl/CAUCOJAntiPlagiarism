@@ -2,147 +2,134 @@
 {% extends "layout/basic.html" %}
 
 {% block content %}
-<div class="plagiarism-compare-container">
-    <div class="plagiarism-compare-header">
-        <h1 class="plagiarism-compare-title">{{ title }}</h1>
+<div class="caucoj-antiplag-container">
+    <!-- 页面头部信息 -->
+    <div class="caucoj-antiplag-page-header">
+        <h1 class="caucoj-antiplag-page-title">代码对比 - {{ problem.title }}</h1>
         
-        <div class="plagiarism-compare-info">
-            <div class="plagiarism-compare-problem">
-                <span class="plagiarism-problem-badge">{{ _('题目') }}</span>
-                <span class="plagiarism-problem-title">{{ problem.title }}</span>
+        <!-- 统计信息面板 -->
+        <div class="caucoj-antiplag-stats-panel">
+            <div class="caucoj-antiplag-problem-info">
+                <span class="caucoj-antiplag-badge caucoj-antiplag-badge-primary">题目</span>
+                <span class="caucoj-antiplag-problem-id">{{ problem.docId }}</span>
+                <span class="caucoj-antiplag-problem-title">{{ problem.title }}</span>
             </div>
             
-            <div class="plagiarism-compare-similarity">
-                <div class="plagiarism-similarity-badge" id="similarityBadge">
-                    {{ (similarity * 100) | round(1) }}%
-                </div>
-                <span class="plagiarism-similarity-label">{{ _('综合相似度') }}</span>
-            </div>
-            
-            <!-- 增强版分析结果 -->
-            {% if analysis %}
-            <div class="plagiarism-analysis-panel">
-                <h3 class="plagiarism-analysis-title">{{ _('详细分析') }}</h3>
-                <div class="plagiarism-analysis-metrics">
-                    <div class="plagiarism-metric">
-                        <span class="plagiarism-metric-label">{{ _('原始算法') }}:</span>
-                        <span class="plagiarism-metric-value">{{ (analysis.originalSimilarity * 100) | round(1) }}%</span>
+            <div class="caucoj-antiplag-similarity-section">
+                <div class="caucoj-antiplag-similarity-main">
+                    <div class="caucoj-antiplag-similarity-score" id="caucojAntiplagSimilarityBadge">
+                        {{ (similarity * 100) | round(1) }}%
                     </div>
-                    <div class="plagiarism-metric">
-                        <span class="plagiarism-metric-label">{{ _('JPlag算法') }}:</span>
-                        <span class="plagiarism-metric-value">{{ (analysis.jplagSimilarity * 100) | round(1) }}%</span>
-                    </div>
-                    <div class="plagiarism-metric">
-                        <span class="plagiarism-metric-label">{{ _('置信度') }}:</span>
-                        <span class="plagiarism-metric-value">{{ (analysis.confidence * 100) | round(1) }}%</span>
-                    </div>
-                    <div class="plagiarism-metric">
-                        <span class="plagiarism-metric-label">{{ _('算法选择') }}:</span>
-                        <span class="plagiarism-metric-value">{{ analysis.algorithm }}</span>
-                    </div>
+                    <span class="caucoj-antiplag-similarity-label">综合相似度</span>
                 </div>
                 
-                {% if analysis.jplagDetails %}
-                <div class="plagiarism-token-info">
-                    <span>{{ _('Token统计') }}: 
-                        {{ analysis.jplagDetails.matchedTokens }}/{{ analysis.jplagDetails.totalTokens1 }}+{{ analysis.jplagDetails.totalTokens2 }}
-                    </span>
+                <!-- 详细分析面板 -->
+                {% if analysis %}
+                <div class="caucoj-antiplag-analysis-details">
+                    <h3 class="caucoj-antiplag-analysis-heading">详细分析</h3>
+                    <div class="caucoj-antiplag-metrics-grid">
+                        <div class="caucoj-antiplag-metric-item">
+                            <span class="caucoj-antiplag-metric-label">原始算法:</span>
+                            <span class="caucoj-antiplag-metric-value">{{ (analysis.originalSimilarity * 100) | round(1) }}%</span>
+                        </div>
+                        <div class="caucoj-antiplag-metric-item">
+                            <span class="caucoj-antiplag-metric-label">JPlag算法:</span>
+                            <span class="caucoj-antiplag-metric-value">{{ (analysis.jplagSimilarity * 100) | round(1) }}%</span>
+                        </div>
+                        <div class="caucoj-antiplag-metric-item">
+                            <span class="caucoj-antiplag-metric-label">置信度:</span>
+                            <span class="caucoj-antiplag-metric-value">{{ (analysis.confidence * 100) | round(1) }}%</span>
+                        </div>
+                        <div class="caucoj-antiplag-metric-item">
+                            <span class="caucoj-antiplag-metric-label">算法选择:</span>
+                            <span class="caucoj-antiplag-metric-value caucoj-antiplag-algorithm-name">{{ analysis.algorithm }}</span>
+                        </div>
+                    </div>
+                    
+                    {% if analysis.jplagDetails %}
+                    <div class="caucoj-antiplag-token-stats">
+                        <span class="caucoj-antiplag-token-label">Token统计: </span>
+                        <span class="caucoj-antiplag-token-value">
+                            {{ analysis.jplagDetails.matchedTokens }}/{{ analysis.jplagDetails.totalTokens1 }}+{{ analysis.jplagDetails.totalTokens2 }}
+                        </span>
+                    </div>
+                    {% endif %}
+                    
+                    {% if analysis.recommendations and analysis.recommendations.length > 0 %}
+                    <div class="caucoj-antiplag-recommendations">
+                        <h4 class="caucoj-antiplag-recommendation-title">分析建议:</h4>
+                        <ul class="caucoj-antiplag-recommendation-list">
+                            {% for recommendation in analysis.recommendations %}
+                            <li class="caucoj-antiplag-recommendation-item">{{ recommendation }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
                 </div>
                 {% endif %}
-                
-                {% if analysis.recommendations and analysis.recommendations.length > 0 %}
-                <div class="plagiarism-recommendations">
-                    <h4>{{ _('分析建议') }}:</h4>
-                    <ul>
-                        {% for recommendation in analysis.recommendations %}
-                        <li>{{ recommendation }}</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-                {% endif %}
-            </div>
-            {% endif %}
-        </div>
-    </div>
-
-    <div class="plagiarism-navigation">
-        <a href="/plagiarism/contest/{{ contest._id }}/{{ problem.docId }}" class="plagiarism-nav-btn plagiarism-nav-btn-secondary">
-            <i class="icon icon-arrow-left"></i>
-            {{ _('返回题目查重') }}
-        </a>
-    </div>
-
-    <!-- 用户信息对比 -->
-                <span class="plagiarism-problem-badge">{{ problem.docId }}</span>
-                <span class="plagiarism-problem-title">{{ problem.title }}</span>
-            </div>
-            <div class="plagiarism-compare-similarity">
-                <div class="plagiarism-similarity-badge" data-similarity="{{ similarity }}">
-                    {{ (similarity * 100) | round(1) }}%
-                </div>
-                <span class="plagiarism-similarity-label">{{ _('相似度') }}</span>
             </div>
         </div>
     </div>
 
-    <div class="plagiarism-navigation">
-        <a href="/plagiarism/contest/{{ contest._id }}/{{ problem.docId }}" class="plagiarism-nav-btn plagiarism-nav-btn-secondary">
+    <!-- 导航栏 -->
+    <div class="caucoj-antiplag-navigation">
+        <a href="/plagiarism/contest/{{ contest._id }}/{{ problem.docId }}" class="caucoj-antiplag-nav-button caucoj-antiplag-nav-button-back">
             <i class="icon icon-arrow-left"></i>
-            {{ _('返回题目查重') }}
+            返回题目查重
         </a>
     </div>
 
     <!-- 用户信息对比 -->
-    <div class="plagiarism-users-comparison">
-        <div class="plagiarism-user-panel">
-            <div class="plagiarism-user-header">
-                <div class="plagiarism-user-avatar">
+    <div class="caucoj-antiplag-users-comparison">
+        <div class="caucoj-antiplag-user-panel">
+            <div class="caucoj-antiplag-user-header">
+                <div class="caucoj-antiplag-user-avatar">
                     {% if submission1.user and submission1.user.avatar %}
-                        <img src="{{ submission1.user.avatar }}" alt="{{ submission1.user.uname }}">
+                        <img src="{{ submission1.user.avatar }}" alt="{{ submission1.user.uname }}" class="caucoj-antiplag-avatar-img">
                     {% else %}
-                        <div class="plagiarism-default-avatar">
+                        <div class="caucoj-antiplag-default-avatar">
                             {{ (submission1.user.uname if submission1.user else 'User')[0] | upper }}
                         </div>
                     {% endif %}
                 </div>
-                <div class="plagiarism-user-info">
-                    <h3 class="plagiarism-user-name">
+                <div class="caucoj-antiplag-user-details">
+                    <h3 class="caucoj-antiplag-username">
                         {{ submission1.user.uname if submission1.user else 'User ' + submission1.uid }}
                     </h3>
-                    <div class="plagiarism-user-meta">
-                        <span>{{ _('用户ID') }}: {{ submission1.uid }}</span>
-                        <span>{{ _('提交时间') }}: {{ datetimeSpan(submission1.judgeAt) | safe }}</span>
-                        <span>{{ _('语言') }}: {{ submission1.lang }}</span>
+                    <div class="caucoj-antiplag-user-meta">
+                        <span class="caucoj-antiplag-meta-item">用户ID: {{ submission1.uid }}</span>
+                        <span class="caucoj-antiplag-meta-item">提交时间: {{ datetimeSpan(submission1.judgeAt) | safe }}</span>
+                        <span class="caucoj-antiplag-meta-item">语言: {{ submission1.lang }}</span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="plagiarism-vs-divider">
-            <div class="plagiarism-vs-circle">
-                <span>VS</span>
+        <div class="caucoj-antiplag-vs-divider">
+            <div class="caucoj-antiplag-vs-circle">
+                <span class="caucoj-antiplag-vs-text">VS</span>
             </div>
         </div>
 
-        <div class="plagiarism-user-panel">
-            <div class="plagiarism-user-header">
-                <div class="plagiarism-user-avatar">
+        <div class="caucoj-antiplag-user-panel">
+            <div class="caucoj-antiplag-user-header">
+                <div class="caucoj-antiplag-user-avatar">
                     {% if submission2.user and submission2.user.avatar %}
-                        <img src="{{ submission2.user.avatar }}" alt="{{ submission2.user.uname }}">
+                        <img src="{{ submission2.user.avatar }}" alt="{{ submission2.user.uname }}" class="caucoj-antiplag-avatar-img">
                     {% else %}
-                        <div class="plagiarism-default-avatar">
+                        <div class="caucoj-antiplag-default-avatar">
                             {{ (submission2.user.uname if submission2.user else 'User')[0] | upper }}
                         </div>
                     {% endif %}
                 </div>
-                <div class="plagiarism-user-info">
-                    <h3 class="plagiarism-user-name">
+                <div class="caucoj-antiplag-user-details">
+                    <h3 class="caucoj-antiplag-username">
                         {{ submission2.user.uname if submission2.user else 'User ' + submission2.uid }}
                     </h3>
-                    <div class="plagiarism-user-meta">
-                        <span>{{ _('用户ID') }}: {{ submission2.uid }}</span>
-                        <span>{{ _('提交时间') }}: {{ datetimeSpan(submission2.judgeAt) | safe }}</span>
-                        <span>{{ _('语言') }}: {{ submission2.lang }}</span>
+                    <div class="caucoj-antiplag-user-meta">
+                        <span class="caucoj-antiplag-meta-item">用户ID: {{ submission2.uid }}</span>
+                        <span class="caucoj-antiplag-meta-item">提交时间: {{ datetimeSpan(submission2.judgeAt) | safe }}</span>
+                        <span class="caucoj-antiplag-meta-item">语言: {{ submission2.lang }}</span>
                     </div>
                 </div>
             </div>
@@ -151,34 +138,34 @@
 
     <!-- 相似片段统计 -->
     {% if details.length > 0 %}
-    <div class="plagiarism-segments-summary">
-        <div class="plagiarism-summary-header">
-            <h3>{{ _('相似片段统计') }}</h3>
-            <div class="plagiarism-summary-stats">
-                <span class="plagiarism-stat-item">
-                    <strong>{{ details.length }}</strong> {{ _('个相似片段') }}
+    <div class="caucoj-antiplag-segments-summary">
+        <div class="caucoj-antiplag-summary-header">
+            <h3 class="caucoj-antiplag-summary-title">相似片段统计</h3>
+            <div class="caucoj-antiplag-summary-stats">
+                <span class="caucoj-antiplag-stat-item">
+                    <strong>{{ details.length }}</strong> 个相似片段
                 </span>
-                <span class="plagiarism-stat-item">
+                <span class="caucoj-antiplag-stat-item">
                     {% set avgSimilarity = 0 %}
                     {% for detail in details %}
                         {% set avgSimilarity = avgSimilarity + detail.similarity %}
                     {% endfor %}
-                    {{ _('平均相似度') }}: <strong>{{ (avgSimilarity / details.length * 100) | round(1) }}%</strong>
+                    平均相似度: <strong>{{ (avgSimilarity / details.length * 100) | round(1) }}%</strong>
                 </span>
             </div>
         </div>
         
-        <div class="plagiarism-segments-list">
+        <div class="caucoj-antiplag-segments-list">
             {% for detail in details %}
-            <div class="plagiarism-segment-item" onclick="scrollToSegment({{ loop.index }})">
-                <div class="plagiarism-segment-number">{{ loop.index }}</div>
-                <div class="plagiarism-segment-info">
-                    <div class="plagiarism-segment-lines">
-                        {{ _('用户A') }}: {{ detail.startLine1 }}-{{ detail.endLine1 }} | 
-                        {{ _('用户B') }}: {{ detail.startLine2 }}-{{ detail.endLine2 }}
+            <div class="caucoj-antiplag-segment-item" onclick="scrollToSegment({{ loop.index }})">
+                <div class="caucoj-antiplag-segment-number">{{ loop.index }}</div>
+                <div class="caucoj-antiplag-segment-info">
+                    <div class="caucoj-antiplag-segment-lines">
+                        用户A: {{ detail.startLine1 }}-{{ detail.endLine1 }} | 
+                        用户B: {{ detail.startLine2 }}-{{ detail.endLine2 }}
                     </div>
-                    <div class="plagiarism-segment-similarity">
-                        {{ (detail.similarity * 100) | round(1) }}% {{ _('相似') }}
+                    <div class="caucoj-antiplag-segment-similarity">
+                        {{ (detail.similarity * 100) | round(1) }}% 相似
                     </div>
                 </div>
             </div>
@@ -188,57 +175,57 @@
     {% endif %}
 
     <!-- 代码对比 -->
-    <div class="plagiarism-code-comparison">
-        <div class="plagiarism-code-panel">
-            <div class="plagiarism-code-header">
-                <h4>{{ submission1.user.uname if submission1.user else 'User ' + submission1.uid }} {{ _('的代码') }}</h4>
-                <div class="plagiarism-code-actions">
-                    <button class="plagiarism-toggle-numbers" onclick="toggleLineNumbers(1)">
+    <div class="caucoj-antiplag-code-comparison">
+        <div class="caucoj-antiplag-code-panel">
+            <div class="caucoj-antiplag-code-header">
+                <h4 class="caucoj-antiplag-code-title">{{ submission1.user.uname if submission1.user else 'User ' + submission1.uid }} 的代码</h4>
+                <div class="caucoj-antiplag-code-actions">
+                    <button class="caucoj-antiplag-toggle-numbers" onclick="toggleLineNumbers(1)">
                         <i class="icon icon-list-ol"></i>
-                        {{ _('行号') }}
+                        行号
                     </button>
                 </div>
             </div>
-            <div class="plagiarism-code-content">
-                <pre class="plagiarism-code" id="code1"><code>{{ submission1.highlightedCode | safe }}</code></pre>
+            <div class="caucoj-antiplag-code-content">
+                <pre class="caucoj-antiplag-code" id="caucojAntiplagCode1"><code>{{ submission1.highlightedCode | safe }}</code></pre>
             </div>
         </div>
 
-        <div class="plagiarism-code-panel">
-            <div class="plagiarism-code-header">
-                <h4>{{ submission2.user.uname if submission2.user else 'User ' + submission2.uid }} {{ _('的代码') }}</h4>
-                <div class="plagiarism-code-actions">
-                    <button class="plagiarism-toggle-numbers" onclick="toggleLineNumbers(2)">
+        <div class="caucoj-antiplag-code-panel">
+            <div class="caucoj-antiplag-code-header">
+                <h4 class="caucoj-antiplag-code-title">{{ submission2.user.uname if submission2.user else 'User ' + submission2.uid }} 的代码</h4>
+                <div class="caucoj-antiplag-code-actions">
+                    <button class="caucoj-antiplag-toggle-numbers" onclick="toggleLineNumbers(2)">
                         <i class="icon icon-list-ol"></i>
-                        {{ _('行号') }}
+                        行号
                     </button>
                 </div>
             </div>
-            <div class="plagiarism-code-content">
-                <pre class="plagiarism-code" id="code2"><code>{{ submission2.highlightedCode | safe }}</code></pre>
+            <div class="caucoj-antiplag-code-content">
+                <pre class="caucoj-antiplag-code" id="caucojAntiplagCode2"><code>{{ submission2.highlightedCode | safe }}</code></pre>
             </div>
         </div>
     </div>
 
     <!-- 详细相似片段展示 -->
     {% if details.length > 0 %}
-    <div class="plagiarism-detailed-segments">
-        <h3 class="plagiarism-segments-title">{{ _('详细相似片段对比') }}</h3>
+    <div class="caucoj-antiplag-detailed-segments">
+        <h3 class="caucoj-antiplag-segments-title">详细相似片段对比</h3>
         
         {% for detail in details %}
-        <div class="plagiarism-segment-detail" id="segment-{{ loop.index }}">
-            <div class="plagiarism-segment-header">
-                <div class="plagiarism-segment-title">
-                    <span class="plagiarism-segment-badge">{{ loop.index }}</span>
-                    {{ _('相似片段') }} {{ loop.index }}
+        <div class="caucoj-antiplag-segment-detail" id="caucojAntiplagSegment{{ loop.index }}">
+            <div class="caucoj-antiplag-segment-header">
+                <div class="caucoj-antiplag-segment-title">
+                    <span class="caucoj-antiplag-segment-badge">{{ loop.index }}</span>
+                    相似片段 {{ loop.index }}
                 </div>
-                <div class="plagiarism-segment-stats">
-                    <span class="plagiarism-segment-similarity-badge" data-similarity="{{ detail.similarity }}">
+                <div class="caucoj-antiplag-segment-stats">
+                    <span class="caucoj-antiplag-segment-similarity-badge" data-similarity="{{ detail.similarity }}">
                         {{ (detail.similarity * 100) | round(1) }}%
                     </span>
-                    <div class="plagiarism-segment-lines-info">
-                        <span>{{ _('用户A') }}: {{ detail.startLine1 }}-{{ detail.endLine1 }}</span>
-                        <span>{{ _('用户B') }}: {{ detail.startLine2 }}-{{ detail.endLine2 }}</span>
+                    <div class="caucoj-antiplag-segment-lines-info">
+                        <span class="caucoj-antiplag-line-range">用户A: {{ detail.startLine1 }}-{{ detail.endLine1 }}</span>
+                        <span class="caucoj-antiplag-line-range">用户B: {{ detail.startLine2 }}-{{ detail.endLine2 }}</span>
                     </div>
                 </div>
             </div>
@@ -247,7 +234,7 @@
                 <div class="plagiarism-segment-code-block">
                     <div class="plagiarism-segment-code-title">
                         {{ submission1.user.uname if submission1.user else 'User ' + submission1.uid }}
-                        <span class="plagiarism-code-lines">{{ _('行') }} {{ detail.startLine1 }}-{{ detail.endLine1 }}</span>
+                        <span class="caucoj-antiplag-code-lines">行 {{ detail.startLine1 }}-{{ detail.endLine1 }}</span>
                     </div>
                     <pre class="plagiarism-segment-code"><code>{{ detail.text1 }}</code></pre>
                 </div>
@@ -255,7 +242,7 @@
                 <div class="plagiarism-segment-code-block">
                     <div class="plagiarism-segment-code-title">
                         {{ submission2.user.uname if submission2.user else 'User ' + submission2.uid }}
-                        <span class="plagiarism-code-lines">{{ _('行') }} {{ detail.startLine2 }}-{{ detail.endLine2 }}</span>
+                        <span class="caucoj-antiplag-code-lines">行 {{ detail.startLine2 }}-{{ detail.endLine2 }}</span>
                     </div>
                     <pre class="plagiarism-segment-code"><code>{{ detail.text2 }}</code></pre>
                 </div>
@@ -269,7 +256,7 @@
 <script>
 // 滚动到指定片段
 function scrollToSegment(segmentIndex) {
-    const element = document.getElementById(`segment-${segmentIndex}`);
+    const element = document.getElementById(`caucojAntiplagSegment${segmentIndex}`);
     if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'start' });
         element.classList.add('highlighted');
@@ -281,7 +268,7 @@ function scrollToSegment(segmentIndex) {
 
 // 切换行号显示
 function toggleLineNumbers(panelId) {
-    const codeElement = document.getElementById(`code${panelId}`);
+    const codeElement = document.getElementById(`caucojAntiplagCode${panelId}`);
     const button = document.querySelector(`[onclick="toggleLineNumbers(${panelId})"]`);
     
     if (codeElement.classList.contains('show-line-numbers')) {
@@ -296,12 +283,12 @@ function toggleLineNumbers(panelId) {
 
 // 添加行号
 function addLineNumbers(codeElement) {
-    if (codeElement.querySelector('.line-numbers')) return; // 已添加行号
+    if (codeElement.querySelector('.caucoj-antiplag-line-numbers')) return; // 已添加行号
     
     const code = codeElement.querySelector('code');
     const lines = code.innerHTML.split('\n');
     const lineNumbersDiv = document.createElement('div');
-    lineNumbersDiv.className = 'line-numbers';
+    lineNumbersDiv.className = 'caucoj-antiplag-line-numbers';
     
     for (let i = 1; i <= lines.length; i++) {
         const lineNumber = document.createElement('span');
@@ -333,7 +320,7 @@ function getSimilarityColor(score) {
 
 function initializeCodeHighlights() {
     // 为高亮片段添加交互效果
-    document.querySelectorAll('.plagiarism-code span[class*="plagiarism-highlight-"]').forEach((element, index) => {
+    document.querySelectorAll('.caucoj-antiplag-code span[class*="caucoj-antiplag-highlight-"]').forEach((element, index) => {
         element.addEventListener('mouseenter', function() {
             const className = this.className;
             document.querySelectorAll(`.${className}`).forEach(el => el.classList.add('hover'));
@@ -348,651 +335,675 @@ function initializeCodeHighlights() {
 </script>
 
 <style>
-.plagiarism-compare-container {
+/* CAUCOJ Anti-Plagiarism 专用样式 - 避免与HydroOJ冲突 */
+.caucoj-antiplag-container {
     max-width: 1600px;
     margin: 0 auto;
     padding: 24px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-.plagiarism-compare-header {
-    text-align: center;
+/* 页面头部 */
+.caucoj-antiplag-page-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 16px;
+    padding: 32px;
     margin-bottom: 32px;
+    color: white;
+    text-align: center;
 }
 
-.plagiarism-compare-title {
-    font-size: 2.2rem;
-    font-weight: 600;
-    color: #2c3e50;
-    margin-bottom: 16px;
+.caucoj-antiplag-page-title {
+    font-size: 2.4rem;
+    font-weight: 700;
+    margin-bottom: 24px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 
-.plagiarism-compare-info {
+/* 统计面板 */
+.caucoj-antiplag-stats-panel {
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    padding: 24px;
+    margin-top: 24px;
+}
+
+.caucoj-antiplag-problem-info {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 32px;
+    gap: 16px;
+    margin-bottom: 24px;
     flex-wrap: wrap;
 }
 
-.plagiarism-compare-problem {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+.caucoj-antiplag-badge {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.plagiarism-problem-badge {
-    background: #3498db;
+.caucoj-antiplag-badge-primary {
+    background: rgba(52, 152, 219, 0.9);
     color: white;
-    padding: 6px 12px;
-    border-radius: 16px;
-    font-size: 0.875rem;
+}
+
+.caucoj-antiplag-problem-id {
+    background: rgba(46, 204, 113, 0.9);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
     font-weight: 600;
 }
 
-.plagiarism-problem-title {
-    font-size: 1.1rem;
-    font-weight: 500;
-    color: #2c3e50;
+.caucoj-antiplag-problem-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: white;
 }
 
-.plagiarism-compare-similarity {
+/* 相似度区域 */
+.caucoj-antiplag-similarity-section {
+    text-align: center;
+}
+
+.caucoj-antiplag-similarity-main {
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 24px;
 }
 
-.plagiarism-similarity-badge {
-    padding: 8px 16px;
-    border-radius: 20px;
+.caucoj-antiplag-similarity-score {
+    background: linear-gradient(45deg, #e74c3c, #c0392b);
     color: white;
+    padding: 16px 24px;
+    border-radius: 50px;
+    font-size: 2rem;
+    font-weight: 800;
+    box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
+    min-width: 120px;
+}
+
+.caucoj-antiplag-similarity-label {
     font-size: 1.1rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.9);
+}
+
+/* 分析详情 */
+.caucoj-antiplag-analysis-details {
+    background: rgba(255,255,255,0.2);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 16px;
+}
+
+.caucoj-antiplag-analysis-heading {
+    font-size: 1.3rem;
     font-weight: 700;
+    margin-bottom: 16px;
+    color: white;
+    text-align: center;
 }
 
-.plagiarism-similarity-label {
-    font-size: 0.9rem;
-    color: #7f8c8d;
+.caucoj-antiplag-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
 }
 
-.plagiarism-navigation {
+.caucoj-antiplag-metric-item {
+    background: rgba(255,255,255,0.1);
+    padding: 12px 16px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.caucoj-antiplag-metric-label {
+    font-weight: 600;
+    color: rgba(255,255,255,0.9);
+}
+
+.caucoj-antiplag-metric-value {
+    font-weight: 700;
+    color: #f1c40f;
+}
+
+.caucoj-antiplag-algorithm-name {
+    text-transform: uppercase;
+    font-size: 0.875rem;
+    background: rgba(155, 89, 182, 0.8);
+    padding: 4px 8px;
+    border-radius: 4px;
+    color: white !important;
+}
+
+.caucoj-antiplag-token-stats {
+    text-align: center;
+    margin: 16px 0;
+    padding: 12px;
+    background: rgba(52, 152, 219, 0.2);
+    border-radius: 8px;
+}
+
+.caucoj-antiplag-token-label {
+    color: rgba(255,255,255,0.8);
+    font-weight: 500;
+}
+
+.caucoj-antiplag-token-value {
+    color: #3498db;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+}
+
+.caucoj-antiplag-recommendations {
+    margin-top: 16px;
+}
+
+.caucoj-antiplag-recommendation-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #f39c12;
+}
+
+.caucoj-antiplag-recommendation-list {
+    background: rgba(241, 196, 15, 0.1);
+    border-radius: 8px;
+    padding: 16px;
+    margin: 0;
+    list-style: none;
+}
+
+.caucoj-antiplag-recommendation-item {
+    color: rgba(255,255,255,0.9);
+    margin-bottom: 8px;
+    padding-left: 16px;
+    position: relative;
+}
+
+.caucoj-antiplag-recommendation-item:before {
+    content: '•';
+    color: #f39c12;
+    position: absolute;
+    left: 0;
+    font-weight: bold;
+}
+
+/* 导航 */
+.caucoj-antiplag-navigation {
     margin-bottom: 32px;
 }
 
-.plagiarism-nav-btn {
+.caucoj-antiplag-nav-button {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 12px 20px;
+    padding: 12px 24px;
     border-radius: 8px;
     text-decoration: none;
-    font-weight: 500;
-    transition: all 0.2s ease;
+    font-weight: 600;
+    transition: all 0.3s ease;
     border: none;
     cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
 
-.plagiarism-nav-btn-secondary {
+.caucoj-antiplag-nav-button-back {
     background: #ffffff;
     color: #3498db;
     border: 2px solid #3498db;
 }
 
-.plagiarism-nav-btn-secondary:hover {
+.caucoj-antiplag-nav-button-back:hover {
     background: #3498db;
     color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(52, 152, 219, 0.3);
 }
 
-/* 增强版分析面板样式 */
-.plagiarism-analysis-panel {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    padding: 16px;
-    margin: 16px 0;
-}
-
-.plagiarism-analysis-title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #2c3e50;
-    margin-bottom: 12px;
-    border-bottom: 2px solid #3498db;
-    padding-bottom: 6px;
-}
-
-.plagiarism-analysis-metrics {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 12px;
-    margin-bottom: 12px;
-}
-
-.plagiarism-metric {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 12px;
-    background: white;
-    border-radius: 6px;
-    border-left: 3px solid #3498db;
-}
-
-.plagiarism-metric-label {
-    font-weight: 500;
-    color: #495057;
-}
-
-.plagiarism-metric-value {
-    font-weight: 600;
-    color: #2c3e50;
-}
-
-.plagiarism-token-info {
-    background: #e3f2fd;
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    color: #1976d2;
-    margin-bottom: 12px;
-}
-
-.plagiarism-recommendations {
-    background: #fff3cd;
-    border: 1px solid #ffeaa7;
-    border-radius: 6px;
-    padding: 12px;
-}
-
-.plagiarism-recommendations h4 {
-    margin: 0 0 8px 0;
-    color: #856404;
-    font-size: 0.95rem;
-}
-
-.plagiarism-recommendations ul {
-    margin: 0;
-    padding-left: 20px;
-}
-
-.plagiarism-recommendations li {
-    color: #856404;
-    font-size: 0.9rem;
-    margin-bottom: 4px;
-}
-
-/* 用户对比样式 */
-.plagiarism-users-comparison {
+/* 用户对比 */
+.caucoj-antiplag-users-comparison {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
-    gap: 24px;
+    gap: 32px;
     align-items: center;
-    background: #ffffff;
-    border: 1px solid #e1e8ed;
-    border-radius: 12px;
-    padding: 24px;
     margin-bottom: 32px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 24px;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
 }
 
-.plagiarism-user-panel {
+.caucoj-antiplag-user-panel {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 12px;
+    padding: 24px;
     text-align: center;
 }
 
-.plagiarism-user-header {
+.caucoj-antiplag-user-header {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
 }
 
-.plagiarism-user-avatar {
-    width: 64px;
-    height: 64px;
+.caucoj-antiplag-user-avatar {
+    position: relative;
+}
+
+.caucoj-antiplag-avatar-img {
+    width: 80px;
+    height: 80px;
     border-radius: 50%;
-    overflow: hidden;
-    border: 3px solid #e1e8ed;
-}
-
-.plagiarism-user-avatar img {
-    width: 100%;
-    height: 100%;
+    border: 4px solid #3498db;
     object-fit: cover;
 }
 
-.plagiarism-default-avatar {
-    width: 100%;
-    height: 100%;
-    background: #3498db;
-    color: white;
+.caucoj-antiplag-default-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3498db, #2980b9);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.5rem;
+    font-size: 2rem;
     font-weight: 700;
+    color: white;
+    border: 4px solid #ffffff;
+    box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
 }
 
-.plagiarism-user-name {
-    font-size: 1.2rem;
-    font-weight: 600;
+.caucoj-antiplag-username {
+    font-size: 1.4rem;
+    font-weight: 700;
     color: #2c3e50;
-    margin: 0 0 8px 0;
+    margin: 0;
 }
 
-.plagiarism-user-meta {
+.caucoj-antiplag-user-meta {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    font-size: 0.875rem;
-    color: #7f8c8d;
+    gap: 8px;
+    margin-top: 12px;
 }
 
-.plagiarism-vs-divider {
-    display: flex;
-    justify-content: center;
-}
-
-.plagiarism-vs-circle {
-    width: 60px;
-    height: 60px;
-    background: #e74c3c;
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.2rem;
-    font-weight: 700;
-}
-
-/* 相似片段统计 */
-.plagiarism-segments-summary {
-    background: #ffffff;
-    border: 1px solid #e1e8ed;
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 32px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.plagiarism-summary-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid #e1e8ed;
-}
-
-.plagiarism-summary-header h3 {
-    margin: 0;
-    color: #2c3e50;
-    font-size: 1.2rem;
-}
-
-.plagiarism-summary-stats {
-    display: flex;
-    gap: 20px;
+.caucoj-antiplag-meta-item {
     font-size: 0.9rem;
     color: #7f8c8d;
-}
-
-.plagiarism-segments-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 12px;
-}
-
-.plagiarism-segment-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px;
-    background: #f8f9fa;
-    border: 1px solid #e1e8ed;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.plagiarism-segment-item:hover {
-    background: #e9ecef;
-    border-color: #3498db;
-    transform: translateY(-1px);
-}
-
-.plagiarism-segment-number {
-    width: 32px;
-    height: 32px;
-    background: #3498db;
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 0.875rem;
-}
-
-.plagiarism-segment-info {
-    flex: 1;
-}
-
-.plagiarism-segment-lines {
-    font-size: 0.875rem;
-    color: #2c3e50;
-    margin-bottom: 4px;
-}
-
-.plagiarism-segment-similarity {
-    font-size: 0.75rem;
-    color: #7f8c8d;
+    background: rgba(52, 152, 219, 0.1);
+    padding: 6px 12px;
+    border-radius: 20px;
     font-weight: 500;
 }
 
-/* 代码对比样式 */
-.plagiarism-code-comparison {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    margin-bottom: 32px;
-}
-
-.plagiarism-code-panel {
-    background: #ffffff;
-    border: 1px solid #e1e8ed;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.plagiarism-code-header {
+.caucoj-antiplag-vs-divider {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
-    padding: 16px 20px;
-    background: #f8f9fa;
-    border-bottom: 1px solid #e1e8ed;
 }
 
-.plagiarism-code-header h4 {
-    margin: 0;
-    font-size: 1rem;
-    color: #2c3e50;
-}
-
-.plagiarism-toggle-numbers {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: transparent;
-    border: 1px solid #e1e8ed;
-    padding: 6px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.875rem;
-    color: #7f8c8d;
-    transition: all 0.2s ease;
-}
-
-.plagiarism-toggle-numbers:hover,
-.plagiarism-toggle-numbers.active {
-    background: #3498db;
-    color: white;
-    border-color: #3498db;
-}
-
-.plagiarism-code-content {
-    position: relative;
-    height: 600px;
-    overflow: auto;
-}
-
-.plagiarism-code {
-    margin: 0;
-    padding: 16px;
-    background: #ffffff;
-    border: none;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    font-size: 0.875rem;
-    line-height: 1.6;
-    color: #2c3e50;
-    height: 100%;
-    overflow: auto;
-    white-space: pre-wrap;
-    position: relative;
-}
-
-.plagiarism-code.show-line-numbers {
-    padding-left: 60px;
-}
-
-.line-numbers {
-    position: absolute;
-    left: 0;
-    top: 16px;
-    width: 50px;
-    background: #f8f9fa;
-    border-right: 1px solid #e1e8ed;
-    padding: 0 8px;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    font-size: 0.875rem;
-    line-height: 1.6;
-    color: #7f8c8d;
-    text-align: right;
-    user-select: none;
-}
-
-.line-numbers span {
-    display: block;
-}
-
-/* 高亮样式 */
-.plagiarism-highlight-0 { background-color: rgba(231, 76, 60, 0.3); }
-.plagiarism-highlight-1 { background-color: rgba(52, 152, 219, 0.3); }
-.plagiarism-highlight-2 { background-color: rgba(46, 204, 113, 0.3); }
-.plagiarism-highlight-3 { background-color: rgba(243, 156, 18, 0.3); }
-.plagiarism-highlight-4 { background-color: rgba(155, 89, 182, 0.3); }
-
-.plagiarism-highlight-0.hover { background-color: rgba(231, 76, 60, 0.6); }
-.plagiarism-highlight-1.hover { background-color: rgba(52, 152, 219, 0.6); }
-.plagiarism-highlight-2.hover { background-color: rgba(46, 204, 113, 0.6); }
-.plagiarism-highlight-3.hover { background-color: rgba(243, 156, 18, 0.6); }
-.plagiarism-highlight-4.hover { background-color: rgba(155, 89, 182, 0.6); }
-
-/* 详细片段样式 */
-.plagiarism-detailed-segments {
-    background: #ffffff;
-    border: 1px solid #e1e8ed;
-    border-radius: 12px;
-    padding: 24px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.plagiarism-segments-title {
-    font-size: 1.3rem;
-    font-weight: 600;
-    color: #2c3e50;
-    margin-bottom: 24px;
-    text-align: center;
-}
-
-.plagiarism-segment-detail {
-    margin-bottom: 32px;
-    border: 1px solid #e1e8ed;
-    border-radius: 12px;
-    overflow: hidden;
-    transition: all 0.2s ease;
-}
-
-.plagiarism-segment-detail.highlighted {
-    border-color: #3498db;
-    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
-}
-
-.plagiarism-segment-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px 20px;
-    background: #f8f9fa;
-    border-bottom: 1px solid #e1e8ed;
-}
-
-.plagiarism-segment-title {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #2c3e50;
-}
-
-.plagiarism-segment-badge {
-    width: 28px;
-    height: 28px;
-    background: #3498db;
-    color: white;
+.caucoj-antiplag-vs-circle {
+    width: 80px;
+    height: 80px;
     border-radius: 50%;
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.875rem;
-    font-weight: 700;
+    box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
 }
 
-.plagiarism-segment-stats {
+.caucoj-antiplag-vs-text {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: white;
+    letter-spacing: 2px;
+}
+
+/* 片段统计 */
+.caucoj-antiplag-segments-summary {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 32px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+}
+
+.caucoj-antiplag-summary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.caucoj-antiplag-summary-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.caucoj-antiplag-summary-stats {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.caucoj-antiplag-stat-item {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 25px;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.caucoj-antiplag-segments-list {
+    display: grid;
+    gap: 12px;
+}
+
+.caucoj-antiplag-segment-item {
+    background: #f8f9fa;
+    border: 2px solid transparent;
+    border-radius: 12px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
     display: flex;
     align-items: center;
     gap: 16px;
 }
 
-.plagiarism-segment-similarity-badge {
-    padding: 6px 12px;
-    border-radius: 12px;
+.caucoj-antiplag-segment-item:hover {
+    background: #e3f2fd;
+    border-color: #3498db;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(52, 152, 219, 0.2);
+}
+
+.caucoj-antiplag-segment-number {
+    background: linear-gradient(135deg, #3498db, #2980b9);
     color: white;
-    font-size: 0.875rem;
-    font-weight: 600;
-}
-
-.plagiarism-segment-lines-info {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
     display: flex;
-    flex-direction: column;
-    gap: 2px;
-    font-size: 0.75rem;
-    color: #7f8c8d;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.1rem;
 }
 
-.plagiarism-segment-code-comparison {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-}
-
-.plagiarism-segment-code-block {
-    border-right: 1px solid #e1e8ed;
-}
-
-.plagiarism-segment-code-block:last-child {
-    border-right: none;
-}
-
-.plagiarism-segment-code-title {
+.caucoj-antiplag-segment-info {
+    flex: 1;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 16px;
-    background: #ecf0f1;
-    border-bottom: 1px solid #e1e8ed;
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: #2c3e50;
 }
 
-.plagiarism-code-lines {
-    font-size: 0.75rem;
+.caucoj-antiplag-segment-lines {
     color: #7f8c8d;
-    font-weight: 400;
+    font-size: 0.9rem;
+    font-family: 'Courier New', monospace;
 }
 
-.plagiarism-segment-code {
-    margin: 0;
-    padding: 16px;
-    background: #ffffff;
-    border: none;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+.caucoj-antiplag-segment-similarity {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-weight: 700;
     font-size: 0.875rem;
-    line-height: 1.6;
-    color: #2c3e50;
-    overflow-x: auto;
-    max-height: 300px;
-    overflow-y: auto;
 }
+
+/* 代码对比 */
+.caucoj-antiplag-code-comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+.caucoj-antiplag-code-panel {
+    background: #ffffff;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+}
+
+.caucoj-antiplag-code-header {
+    background: linear-gradient(135deg, #34495e, #2c3e50);
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.caucoj-antiplag-code-title {
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.caucoj-antiplag-code-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.caucoj-antiplag-toggle-numbers {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.caucoj-antiplag-toggle-numbers:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+.caucoj-antiplag-code-content {
+    height: 600px;
+    overflow: auto;
+    position: relative;
+}
+
+.caucoj-antiplag-code {
+    margin: 0;
+    padding: 20px;
+    font-family: 'Fira Code', 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    background: #f8f9fa;
+    color: #2c3e50;
+}
+
+/* 详细片段 */
+.caucoj-antiplag-detailed-segments {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+}
+
+.caucoj-antiplag-segments-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 24px;
+    text-align: center;
+}
+
+.caucoj-antiplag-segment-detail {
+    background: #f8f9fa;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    overflow: hidden;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.caucoj-antiplag-segment-detail:hover {
+    border-color: #3498db;
+    box-shadow: 0 6px 20px rgba(52, 152, 219, 0.2);
+}
+
+.caucoj-antiplag-segment-detail.highlighted {
+    border-color: #e74c3c;
+    box-shadow: 0 6px 20px rgba(231, 76, 60, 0.3);
+}
+
+.caucoj-antiplag-segment-header {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.caucoj-antiplag-segment-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: white;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.caucoj-antiplag-segment-badge {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+}
+
+.caucoj-antiplag-segment-stats {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.caucoj-antiplag-segment-similarity-badge {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.caucoj-antiplag-segment-lines-info {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.caucoj-antiplag-line-range {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-size: 0.875rem;
+    font-family: 'Courier New', monospace;
+    font-weight: 500;
+}
+
+.caucoj-antiplag-code-lines {
+    font-size: 0.8rem;
+    color: #7f8c8d;
+    font-family: 'Courier New', monospace;
+}
+
+/* 行号样式 */
+.caucoj-antiplag-line-numbers {
+    position: absolute;
+    left: 0;
+    top: 20px;
+    width: 50px;
+    background: #e9ecef;
+    border-right: 1px solid #dee2e6;
+    padding: 0 8px;
+    font-family: 'Fira Code', 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #6c757d;
+    text-align: right;
+    user-select: none;
+}
+
+.caucoj-antiplag-line-numbers span {
+    display: block;
+}
+
+.caucoj-antiplag-code.show-line-numbers {
+    padding-left: 70px;
+}
+
+/* 高亮样式 */
+.caucoj-antiplag-highlight-1 { background-color: rgba(255, 107, 107, 0.3) !important; }
+.caucoj-antiplag-highlight-2 { background-color: rgba(84, 160, 255, 0.3) !important; }
+.caucoj-antiplag-highlight-3 { background-color: rgba(85, 239, 196, 0.3) !important; }
+.caucoj-antiplag-highlight-4 { background-color: rgba(255, 177, 66, 0.3) !important; }
+.caucoj-antiplag-highlight-5 { background-color: rgba(162, 155, 254, 0.3) !important; }
+
+.caucoj-antiplag-highlight-1.hover { background-color: rgba(255, 107, 107, 0.6) !important; }
+.caucoj-antiplag-highlight-2.hover { background-color: rgba(84, 160, 255, 0.6) !important; }
+.caucoj-antiplag-highlight-3.hover { background-color: rgba(85, 239, 196, 0.6) !important; }
+.caucoj-antiplag-highlight-4.hover { background-color: rgba(255, 177, 66, 0.6) !important; }
+.caucoj-antiplag-highlight-5.hover { background-color: rgba(162, 155, 254, 0.6) !important; }
 
 /* 响应式设计 */
-@media (max-width: 1200px) {
-    .plagiarism-code-comparison {
-        grid-template-columns: 1fr;
-    }
-    
-    .plagiarism-segment-code-comparison {
-        grid-template-columns: 1fr;
-    }
-    
-    .plagiarism-segment-code-block {
-        border-right: none;
-        border-bottom: 1px solid #e1e8ed;
-    }
-    
-    .plagiarism-segment-code-block:last-child {
-        border-bottom: none;
-    }
-}
-
 @media (max-width: 768px) {
-    .plagiarism-compare-container {
+    .caucoj-antiplag-container {
         padding: 16px;
     }
     
-    .plagiarism-users-comparison {
-        grid-template-columns: 1fr;
-        gap: 16px;
-        text-align: center;
+    .caucoj-antiplag-page-header {
+        padding: 24px 16px;
     }
     
-    .plagiarism-vs-divider {
-        order: 2;
+    .caucoj-antiplag-page-title {
+        font-size: 1.8rem;
     }
     
-    .plagiarism-compare-info {
+    .caucoj-antiplag-problem-info {
         flex-direction: column;
-        gap: 16px;
-    }
-    
-    .plagiarism-summary-header {
-        flex-direction: column;
-        align-items: flex-start;
         gap: 12px;
-    }
-    
-    .plagiarism-summary-stats {
-        flex-direction: column;
-        gap: 8px;
-    }
-    
-    .plagiarism-segments-list {
-        grid-template-columns: 1fr;
-    }
-    
-    .plagiarism-segment-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
-    }
-    
-    .plagiarism-segment-stats {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 8px;
     }
 }
 </style>
 {% endblock %}
+
+
