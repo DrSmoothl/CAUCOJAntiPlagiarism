@@ -17,7 +17,7 @@
                     <option value="">{{ _('请选择比赛') }}</option>
                     {% for contest in allContests %}
                     <option value="{{ contest._id }}">
-                        {{ contest.title }} ({{ contest.beginAt | date('YYYY-MM-DD') }})
+                        {{ contest.title }} ({{ datetimeSpan(contest.beginAt)|safe }})
                     </option>
                     {% endfor %}
                 </select>
@@ -37,7 +37,7 @@
                 <h3 class="plagiarism-contest-title">{{ contestData.contest.title }}</h3>
                 <div class="plagiarism-contest-meta">
                     <span class="plagiarism-contest-date">
-                        {{ contestData.contest.beginAt | date('YYYY-MM-DD') }}
+                        {{ datetimeSpan(contestData.contest.beginAt)|safe }}
                     </span>
                     <span class="plagiarism-contest-problems">
                         {{ contestData.contest.pids.length }} {{ _('道题目') }}
@@ -51,7 +51,7 @@
                 <div class="plagiarism-report-item">
                     <div class="plagiarism-report-item-info">
                         <span class="plagiarism-report-item-date">
-                            {{ report.createdAt | date('MM-DD HH:mm') }}
+                            {{ datetimeSpan(report.createdAt)|safe }}
                         </span>
                         <span class="plagiarism-report-item-problems">
                             {{ report.problemIds.length }} {{ _('道题目') }}
