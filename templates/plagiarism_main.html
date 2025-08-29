@@ -1,0 +1,308 @@
+{% set page_name = "plagiarism_main" %}
+{% extends "layout/basic.html" %}
+
+{% block content %}
+<div class="plagiarism-container">
+    <div class="plagiarism-header">
+        <h1 class="plagiarism-title">{{ _('代码查重系统') }}</h1>
+        <p class="plagiarism-description">{{ _('管理和监控比赛代码相似度检测') }}</p>
+    </div>
+
+    <div class="plagiarism-stats">
+        <div class="plagiarism-stat-card">
+            <div class="plagiarism-stat-number">{{ reports.length }}</div>
+            <div class="plagiarism-stat-label">{{ _('查重报告') }}</div>
+        </div>
+        <div class="plagiarism-stat-card">
+            <div class="plagiarism-stat-number">
+                {{ reports | selectattr('status', 'equalto', 'completed') | list | length }}
+            </div>
+            <div class="plagiarism-stat-label">{{ _('已完成') }}</div>
+        </div>
+        <div class="plagiarism-stat-card">
+            <div class="plagiarism-stat-number">
+                {{ reports | selectattr('status', 'equalto', 'processing') | list | length }}
+            </div>
+            <div class="plagiarism-stat-label">{{ _('处理中') }}</div>
+        </div>
+    </div>
+
+    <div class="plagiarism-actions">
+        <a href="/plagiarism/contest" class="plagiarism-btn plagiarism-btn-primary">
+            <i class="icon icon-list"></i>
+            {{ _('查看所有比赛查重') }}
+        </a>
+        <a href="/plagiarism/contest" class="plagiarism-btn plagiarism-btn-secondary">
+            <i class="icon icon-plus"></i>
+            {{ _('新建查重任务') }}
+        </a>
+    </div>
+
+    {% if reports.length > 0 %}
+    <div class="plagiarism-section">
+        <h2 class="plagiarism-section-title">{{ _('最近的查重报告') }}</h2>
+        <div class="plagiarism-recent-reports">
+            {% for report in reports %}
+            <div class="plagiarism-report-card">
+                <div class="plagiarism-report-header">
+                    <h3 class="plagiarism-report-title">
+                        {% if report.contest %}
+                            {{ report.contest.title }}
+                        {% else %}
+                            {{ _('未知比赛') }}
+                        {% endif %}
+                    </h3>
+                    <span class="plagiarism-status plagiarism-status-{{ report.status }}">
+                        {% if report.status == 'completed' %}
+                            {{ _('已完成') }}
+                        {% elif report.status == 'processing' %}
+                            {{ _('处理中') }}
+                        {% elif report.status == 'pending' %}
+                            {{ _('等待中') }}
+                        {% else %}
+                            {{ _('失败') }}
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="plagiarism-report-info">
+                    <div class="plagiarism-report-meta">
+                        <span>{{ _('题目数量') }}: {{ report.problemIds.length }}</span>
+                        <span>{{ _('创建时间') }}: {{ report.createdAt | date('YYYY-MM-DD HH:mm') }}</span>
+                    </div>
+                    {% if report.contest %}
+                    <div class="plagiarism-report-actions">
+                        <a href="/plagiarism/contest/{{ report.contest._id }}" class="plagiarism-link">
+                            {{ _('查看详情') }}
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.plagiarism-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+.plagiarism-header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.plagiarism-title {
+    font-size: 2.5rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 8px;
+}
+
+.plagiarism-description {
+    font-size: 1.1rem;
+    color: #7f8c8d;
+    margin: 0;
+}
+
+.plagiarism-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+.plagiarism-stat-card {
+    background: #ffffff;
+    border: 1px solid #e1e8ed;
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease;
+}
+
+.plagiarism-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.plagiarism-stat-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #3498db;
+    margin-bottom: 8px;
+}
+
+.plagiarism-stat-label {
+    font-size: 1rem;
+    color: #7f8c8d;
+    font-weight: 500;
+}
+
+.plagiarism-actions {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin-bottom: 40px;
+}
+
+.plagiarism-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.plagiarism-btn-primary {
+    background: #3498db;
+    color: white;
+}
+
+.plagiarism-btn-primary:hover {
+    background: #2980b9;
+    color: white;
+    transform: translateY(-1px);
+}
+
+.plagiarism-btn-secondary {
+    background: #ffffff;
+    color: #3498db;
+    border: 2px solid #3498db;
+}
+
+.plagiarism-btn-secondary:hover {
+    background: #3498db;
+    color: white;
+    transform: translateY(-1px);
+}
+
+.plagiarism-section {
+    margin-bottom: 32px;
+}
+
+.plagiarism-section-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #ecf0f1;
+}
+
+.plagiarism-recent-reports {
+    display: grid;
+    gap: 16px;
+}
+
+.plagiarism-report-card {
+    background: #ffffff;
+    border: 1px solid #e1e8ed;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.2s ease;
+}
+
+.plagiarism-report-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.plagiarism-report-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.plagiarism-report-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.plagiarism-status {
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.plagiarism-status-completed {
+    background: #d4edda;
+    color: #155724;
+}
+
+.plagiarism-status-processing {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.plagiarism-status-pending {
+    background: #cce5ff;
+    color: #004085;
+}
+
+.plagiarism-status-failed {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.plagiarism-report-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.plagiarism-report-meta {
+    display: flex;
+    gap: 16px;
+    font-size: 0.875rem;
+    color: #7f8c8d;
+}
+
+.plagiarism-link {
+    color: #3498db;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.plagiarism-link:hover {
+    color: #2980b9;
+    text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+    .plagiarism-container {
+        padding: 16px;
+    }
+    
+    .plagiarism-actions {
+        flex-direction: column;
+    }
+    
+    .plagiarism-report-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .plagiarism-report-meta {
+        flex-direction: column;
+        gap: 4px;
+    }
+}
+</style>
+{% endblock %}

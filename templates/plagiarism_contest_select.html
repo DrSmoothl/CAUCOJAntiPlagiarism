@@ -1,0 +1,366 @@
+{% set page_name = "plagiarism_contest_select" %}
+{% extends "layout/basic.html" %}
+
+{% block content %}
+<div class="plagiarism-container">
+    <div class="plagiarism-header">
+        <h1 class="plagiarism-title">{{ _('选择查重题目') }}</h1>
+        <div class="plagiarism-contest-info">
+            <h2 class="plagiarism-contest-name">{{ contest.title }}</h2>
+            <div class="plagiarism-contest-meta">
+                <span>{{ _('比赛时间') }}: {{ contest.beginAt | date('YYYY-MM-DD HH:mm') }} - {{ contest.endAt | date('MM-DD HH:mm') }}</span>
+                <span>{{ _('题目总数') }}: {{ problems.length }}</span>
+            </div>
+        </div>
+    </div>
+
+    {% if error %}
+    <div class="plagiarism-alert plagiarism-alert-error">
+        <i class="icon icon-close"></i>
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="post" class="plagiarism-form">
+        <div class="plagiarism-section">
+            <div class="plagiarism-section-header">
+                <h3 class="plagiarism-section-title">{{ _('选择要查重的题目') }}</h3>
+                <div class="plagiarism-select-actions">
+                    <button type="button" class="plagiarism-btn-link" onclick="selectAll()">{{ _('全选') }}</button>
+                    <button type="button" class="plagiarism-btn-link" onclick="selectNone()">{{ _('取消全选') }}</button>
+                </div>
+            </div>
+            
+            {% if problems.length > 0 %}
+            <div class="plagiarism-problem-list">
+                {% for problem in problems %}
+                <div class="plagiarism-problem-item">
+                    <label class="plagiarism-checkbox-label">
+                        <input type="checkbox" 
+                               name="problemIds" 
+                               value="{{ problem.docId }}" 
+                               class="plagiarism-checkbox"
+                               {% if selectedProblemIds and problem.docId in selectedProblemIds %}checked{% endif %}>
+                        <span class="plagiarism-checkbox-custom"></span>
+                        <div class="plagiarism-problem-info">
+                            <div class="plagiarism-problem-id">{{ problem.docId }}</div>
+                            <div class="plagiarism-problem-title">{{ problem.title }}</div>
+                        </div>
+                    </label>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="plagiarism-empty">
+                <div class="plagiarism-empty-icon">📝</div>
+                <h3 class="plagiarism-empty-title">{{ _('该比赛暂无题目') }}</h3>
+                <p class="plagiarism-empty-text">{{ _('请联系管理员确认比赛配置') }}</p>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if problems.length > 0 %}
+        <div class="plagiarism-form-actions">
+            <a href="/plagiarism/contest" class="plagiarism-btn plagiarism-btn-secondary">
+                <i class="icon icon-arrow-left"></i>
+                {{ _('返回列表') }}
+            </a>
+            <button type="submit" class="plagiarism-btn plagiarism-btn-primary">
+                <i class="icon icon-play"></i>
+                {{ _('开始查重') }}
+            </button>
+        </div>
+        {% endif %}
+    </form>
+</div>
+
+<script>
+function selectAll() {
+    const checkboxes = document.querySelectorAll('input[name="problemIds"]');
+    checkboxes.forEach(checkbox => checkbox.checked = true);
+}
+
+function selectNone() {
+    const checkboxes = document.querySelectorAll('input[name="problemIds"]');
+    checkboxes.forEach(checkbox => checkbox.checked = false);
+}
+
+// 表单提交验证
+document.querySelector('.plagiarism-form').addEventListener('submit', function(e) {
+    const checkboxes = document.querySelectorAll('input[name="problemIds"]:checked');
+    if (checkboxes.length === 0) {
+        e.preventDefault();
+        alert('请至少选择一个题目进行查重');
+    }
+});
+</script>
+
+<style>
+.plagiarism-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+.plagiarism-header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.plagiarism-title {
+    font-size: 2.2rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 16px;
+}
+
+.plagiarism-contest-info {
+    background: #ffffff;
+    border: 1px solid #e1e8ed;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.plagiarism-contest-name {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 8px;
+}
+
+.plagiarism-contest-meta {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    font-size: 0.9rem;
+    color: #7f8c8d;
+}
+
+.plagiarism-alert {
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.plagiarism-alert-error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.plagiarism-form {
+    background: #ffffff;
+    border: 1px solid #e1e8ed;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.plagiarism-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #ecf0f1;
+}
+
+.plagiarism-section-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.plagiarism-select-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.plagiarism-btn-link {
+    background: none;
+    border: none;
+    color: #3498db;
+    cursor: pointer;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.plagiarism-btn-link:hover {
+    background: #e8f4f8;
+    color: #2980b9;
+}
+
+.plagiarism-problem-list {
+    display: grid;
+    gap: 12px;
+}
+
+.plagiarism-problem-item {
+    border: 1px solid #e1e8ed;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.plagiarism-problem-item:hover {
+    border-color: #3498db;
+    box-shadow: 0 2px 4px rgba(52, 152, 219, 0.1);
+}
+
+.plagiarism-checkbox-label {
+    display: flex;
+    align-items: center;
+    padding: 16px;
+    cursor: pointer;
+    margin: 0;
+    width: 100%;
+}
+
+.plagiarism-checkbox {
+    display: none;
+}
+
+.plagiarism-checkbox-custom {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    margin-right: 12px;
+    position: relative;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.plagiarism-checkbox:checked + .plagiarism-checkbox-custom {
+    background: #3498db;
+    border-color: #3498db;
+}
+
+.plagiarism-checkbox:checked + .plagiarism-checkbox-custom::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.plagiarism-problem-info {
+    flex: 1;
+}
+
+.plagiarism-problem-id {
+    font-weight: 600;
+    color: #3498db;
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+}
+
+.plagiarism-problem-title {
+    color: #2c3e50;
+    font-size: 1rem;
+    line-height: 1.4;
+}
+
+.plagiarism-form-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid #ecf0f1;
+}
+
+.plagiarism-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.plagiarism-btn-primary {
+    background: #3498db;
+    color: white;
+}
+
+.plagiarism-btn-primary:hover {
+    background: #2980b9;
+    color: white;
+    transform: translateY(-1px);
+}
+
+.plagiarism-btn-secondary {
+    background: #ffffff;
+    color: #3498db;
+    border: 2px solid #3498db;
+}
+
+.plagiarism-btn-secondary:hover {
+    background: #3498db;
+    color: white;
+    transform: translateY(-1px);
+}
+
+.plagiarism-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #7f8c8d;
+}
+
+.plagiarism-empty-icon {
+    font-size: 3rem;
+    margin-bottom: 16px;
+}
+
+.plagiarism-empty-title {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 8px;
+}
+
+.plagiarism-empty-text {
+    font-size: 1rem;
+    margin: 0;
+}
+
+@media (max-width: 768px) {
+    .plagiarism-container {
+        padding: 16px;
+    }
+    
+    .plagiarism-contest-meta {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .plagiarism-section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    
+    .plagiarism-form-actions {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .plagiarism-form-actions .plagiarism-btn {
+        justify-content: center;
+    }
+}
+</style>
+{% endblock %}

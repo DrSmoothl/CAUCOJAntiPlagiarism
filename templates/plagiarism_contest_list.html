@@ -1,0 +1,437 @@
+{% set page_name = "plagiarism_contest_list" %}
+{% extends "layout/basic.html" %}
+
+{% block content %}
+<div class="plagiarism-container">
+    <div class="plagiarism-header">
+        <h1 class="plagiarism-title">{{ _('比赛查重列表') }}</h1>
+        <p class="plagiarism-description">{{ _('查看和管理所有比赛的查重报告') }}</p>
+    </div>
+
+    <div class="plagiarism-toolbar">
+        <form method="post" class="plagiarism-create-form">
+            <input type="hidden" name="action" value="create_report">
+            <div class="plagiarism-form-group">
+                <label for="contestId" class="plagiarism-label">{{ _('选择比赛') }}:</label>
+                <select name="contestId" id="contestId" class="plagiarism-select" required>
+                    <option value="">{{ _('请选择比赛') }}</option>
+                    {% for contest in allContests %}
+                    <option value="{{ contest._id }}">
+                        {{ contest.title }} ({{ contest.beginAt | date('YYYY-MM-DD') }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="plagiarism-btn plagiarism-btn-primary">
+                <i class="icon icon-plus"></i>
+                {{ _('新建查重任务') }}
+            </button>
+        </form>
+    </div>
+
+    {% if contests.length > 0 %}
+    <div class="plagiarism-contest-list">
+        {% for contestData in contests %}
+        <div class="plagiarism-contest-card">
+            <div class="plagiarism-contest-header">
+                <h3 class="plagiarism-contest-title">{{ contestData.contest.title }}</h3>
+                <div class="plagiarism-contest-meta">
+                    <span class="plagiarism-contest-date">
+                        {{ contestData.contest.beginAt | date('YYYY-MM-DD') }}
+                    </span>
+                    <span class="plagiarism-contest-problems">
+                        {{ contestData.contest.pids.length }} {{ _('道题目') }}
+                    </span>
+                </div>
+            </div>
+            
+            <div class="plagiarism-contest-reports">
+                <h4 class="plagiarism-reports-title">{{ _('查重报告') }} ({{ contestData.reports.length }})</h4>
+                {% for report in contestData.reports %}
+                <div class="plagiarism-report-item">
+                    <div class="plagiarism-report-item-info">
+                        <span class="plagiarism-report-item-date">
+                            {{ report.createdAt | date('MM-DD HH:mm') }}
+                        </span>
+                        <span class="plagiarism-report-item-problems">
+                            {{ report.problemIds.length }} {{ _('道题目') }}
+                        </span>
+                        <span class="plagiarism-status plagiarism-status-{{ report.status }}">
+                            {% if report.status == 'completed' %}
+                                {{ _('已完成') }}
+                            {% elif report.status == 'processing' %}
+                                {{ _('处理中') }}
+                            {% elif report.status == 'pending' %}
+                                {{ _('等待中') }}
+                            {% else %}
+                                {{ _('失败') }}
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="plagiarism-report-item-actions">
+                        <a href="/plagiarism/contest/{{ contestData.contest._id }}" 
+                           class="plagiarism-link">{{ _('查看详情') }}</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="plagiarism-contest-actions">
+                <a href="/plagiarism/contest/{{ contestData.contest._id }}" 
+                   class="plagiarism-btn plagiarism-btn-outline">
+                    {{ _('查看所有查重') }}
+                </a>
+                <a href="/plagiarism/contest/{{ contestData.contest._id }}/select" 
+                   class="plagiarism-btn plagiarism-btn-primary">
+                    {{ _('新建查重') }}
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if pageCount > 1 %}
+    <div class="plagiarism-pagination">
+        {% if page > 1 %}
+        <a href="?page={{ page - 1 }}" class="plagiarism-page-btn">{{ _('上一页') }}</a>
+        {% endif %}
+        
+        <span class="plagiarism-page-info">
+            {{ _('第') }} {{ page }} {{ _('页，共') }} {{ pageCount }} {{ _('页') }}
+        </span>
+        
+        {% if page < pageCount %}
+        <a href="?page={{ page + 1 }}" class="plagiarism-page-btn">{{ _('下一页') }}</a>
+        {% endif %}
+    </div>
+    {% endif %}
+    
+    {% else %}
+    <div class="plagiarism-empty">
+        <div class="plagiarism-empty-icon">📊</div>
+        <h3 class="plagiarism-empty-title">{{ _('暂无查重报告') }}</h3>
+        <p class="plagiarism-empty-text">{{ _('还没有创建任何查重任务，点击上方按钮开始创建') }}</p>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.plagiarism-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+.plagiarism-header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.plagiarism-title {
+    font-size: 2.2rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 8px;
+}
+
+.plagiarism-description {
+    font-size: 1rem;
+    color: #7f8c8d;
+    margin: 0;
+}
+
+.plagiarism-toolbar {
+    background: #ffffff;
+    border: 1px solid #e1e8ed;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 32px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.plagiarism-create-form {
+    display: flex;
+    align-items: end;
+    gap: 16px;
+}
+
+.plagiarism-form-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+.plagiarism-label {
+    display: block;
+    font-weight: 500;
+    color: #2c3e50;
+    margin-bottom: 8px;
+}
+
+.plagiarism-select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 1rem;
+    background: white;
+    transition: border-color 0.2s ease;
+}
+
+.plagiarism-select:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.plagiarism-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.plagiarism-btn-primary {
+    background: #3498db;
+    color: white;
+}
+
+.plagiarism-btn-primary:hover {
+    background: #2980b9;
+    color: white;
+    transform: translateY(-1px);
+}
+
+.plagiarism-btn-outline {
+    background: transparent;
+    color: #3498db;
+    border: 1px solid #3498db;
+}
+
+.plagiarism-btn-outline:hover {
+    background: #3498db;
+    color: white;
+}
+
+.plagiarism-contest-list {
+    display: grid;
+    gap: 24px;
+}
+
+.plagiarism-contest-card {
+    background: #ffffff;
+    border: 1px solid #e1e8ed;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.2s ease;
+}
+
+.plagiarism-contest-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.plagiarism-contest-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #ecf0f1;
+}
+
+.plagiarism-contest-title {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.plagiarism-contest-meta {
+    display: flex;
+    gap: 16px;
+    font-size: 0.875rem;
+    color: #7f8c8d;
+}
+
+.plagiarism-contest-reports {
+    margin-bottom: 20px;
+}
+
+.plagiarism-reports-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 12px;
+}
+
+.plagiarism-report-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+
+.plagiarism-report-item:last-child {
+    margin-bottom: 0;
+}
+
+.plagiarism-report-item-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 0.875rem;
+}
+
+.plagiarism-report-item-date {
+    color: #7f8c8d;
+}
+
+.plagiarism-report-item-problems {
+    color: #5a6c7d;
+}
+
+.plagiarism-status {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.plagiarism-status-completed {
+    background: #d4edda;
+    color: #155724;
+}
+
+.plagiarism-status-processing {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.plagiarism-status-pending {
+    background: #cce5ff;
+    color: #004085;
+}
+
+.plagiarism-status-failed {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.plagiarism-contest-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.plagiarism-link {
+    color: #3498db;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.875rem;
+}
+
+.plagiarism-link:hover {
+    color: #2980b9;
+    text-decoration: underline;
+}
+
+.plagiarism-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    margin-top: 32px;
+}
+
+.plagiarism-page-btn {
+    padding: 8px 16px;
+    background: #3498db;
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: background 0.2s ease;
+}
+
+.plagiarism-page-btn:hover {
+    background: #2980b9;
+    color: white;
+}
+
+.plagiarism-page-info {
+    color: #7f8c8d;
+    font-size: 0.875rem;
+}
+
+.plagiarism-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: #7f8c8d;
+}
+
+.plagiarism-empty-icon {
+    font-size: 4rem;
+    margin-bottom: 16px;
+}
+
+.plagiarism-empty-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 8px;
+}
+
+.plagiarism-empty-text {
+    font-size: 1rem;
+    margin: 0;
+}
+
+@media (max-width: 768px) {
+    .plagiarism-container {
+        padding: 16px;
+    }
+    
+    .plagiarism-create-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .plagiarism-contest-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .plagiarism-contest-meta {
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .plagiarism-report-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .plagiarism-contest-actions {
+        justify-content: stretch;
+    }
+    
+    .plagiarism-contest-actions .plagiarism-btn {
+        flex: 1;
+        justify-content: center;
+    }
+}
+</style>
+{% endblock %}

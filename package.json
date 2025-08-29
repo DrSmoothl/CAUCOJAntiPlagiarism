@@ -1,0 +1,16 @@
+{
+  "name": "contest-plagiarism-detector",
+  "version": "1.0.0",
+  "description": "比赛代码查重插件",
+  "main": "index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["plagiarism", "contest", "code-similarity"],
+  "author": "CAUCOJ",
+  "license": "AGPL-3.0-only",
+  "packageManager": "pnpm@10.12.4",
+  "devDependencies": {
+    "hydrooj": "5.0.0-beta.8"
+  }
+}
