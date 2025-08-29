@@ -221,7 +221,11 @@ const plagiarismModel = {
             const results: PlagiarismResult[] = [];
             
             // 按题目处理
+            let processedProblems = 0;
             for (const problemId of report.problemIds) {
+                processedProblems++;
+                console.log(`处理题目 ${problemId} (${processedProblems}/${report.problemIds.length})`);
+                
                 // 使用灵活的查询方式，参考CAUCOJUserBind的策略
                 let submissions: any[] = [];
                 
@@ -242,35 +246,24 @@ const plagiarismModel = {
                     console.log(`直接查询失败，尝试字符串匹配: ${error}`);
                 }
                 
-                // 方式2: 如果直接查询失败或结果为空，尝试字符串匹配
+                // 方式2: 如果直接查询失败或结果为空，优化的字符串匹配
                 if (submissions.length === 0) {
                     try {
-                        // 先查询所有有代码的提交，看看有多少
-                        const allSubmissionsCount = await recordCol.countDocuments({
-                            code: { $exists: true, $ne: '' }
-                        });
-                        console.log(`数据库中总共有 ${allSubmissionsCount} 个有代码的提交`);
+                        console.log(`使用优化查询方式...`);
                         
-                        // 查询该比赛的所有提交
-                        const contestSubmissionsCount = await recordCol.countDocuments({
-                            contest: report.contestId as any
-                        });
-                        console.log(`比赛 ${report.contestId} 总共有 ${contestSubmissionsCount} 个提交`);
-                        
-                        const allSubmissions = await recordCol.find({
+                        // 先按题目ID过滤，减少数据量
+                        const problemSubmissions = await recordCol.find({
+                            pid: problemId,
                             code: { $exists: true, $ne: '' }
                         }).toArray();
                         
-                        submissions = allSubmissions.filter(sub => {
+                        console.log(`题目 ${problemId} 总共有 ${problemSubmissions.length} 个提交`);
+                        
+                        // 然后在这个较小的数据集中进行字符串匹配
+                        submissions = problemSubmissions.filter(sub => {
                             const contestMatch = sub.contest?.toString() === report.contestId.toString();
-                            const pidMatch = sub.pid?.toString() === problemId.toString();
                             const statusMatch = sub.status === 1;
-                            
-                            if (contestMatch && pidMatch) {
-                                console.log(`找到匹配的提交: 用户 ${sub.uid}, 状态 ${sub.status}, AC: ${statusMatch}`);
-                            }
-                            
-                            return contestMatch && pidMatch && statusMatch;
+                            return contestMatch && statusMatch;
                         });
                         
                         console.log(`字符串匹配查询 - 题目 ${problemId}: 找到 ${submissions.length} 个提交`);
@@ -283,14 +276,25 @@ const plagiarismModel = {
                 
                 // 按语言分组
                 const langGroups = this.groupByLanguage(submissions);
+                console.log(`题目 ${problemId} 按语言分组: ${Object.keys(langGroups).join(', ')}`);
                 
                 for (const [language, langSubmissions] of Object.entries(langGroups)) {
                     if ((langSubmissions as Submission[]).length < 1) continue; // 至少需要1个提交
+                    
+                    console.log(`处理语言 ${language}: ${(langSubmissions as Submission[]).length} 个提交`);
+                    
+                    // 异步中断，避免阻塞
+                    await new Promise(resolve => setImmediate(resolve));
                     
                     const pairs: SimilarityPair[] = [];
                     
                     // 如果有多个提交，进行两两比较
                     if ((langSubmissions as Submission[]).length >= 2) {
+                        console.log(`开始比较 ${(langSubmissions as Submission[]).length} 个 ${language} 提交`);
+                        
+                        let comparisonCount = 0;
+                        const totalComparisons = (langSubmissions as Submission[]).length * ((langSubmissions as Submission[]).length - 1) / 2;
+                        
                         // 两两比较
                         for (let i = 0; i < (langSubmissions as Submission[]).length; i++) {
                             for (let j = i + 1; j < (langSubmissions as Submission[]).length; j++) {
@@ -298,6 +302,14 @@ const plagiarismModel = {
                                 const sub2 = (langSubmissions as Submission[])[j];
                                 
                                 if (sub1.uid === sub2.uid) continue; // 跳过同一用户的提交
+                                
+                                comparisonCount++;
+                                
+                                // 每10次比较后异步中断，避免阻塞
+                                if (comparisonCount % 10 === 0) {
+                                    console.log(`已完成 ${comparisonCount}/${totalComparisons} 次比较`);
+                                    await new Promise(resolve => setImmediate(resolve));
+                                }
                                 
                                 const similarity = CodeSimilarityAnalyzer.calculateSimilarity(
                                     sub1.code, sub2.code, language
@@ -319,6 +331,8 @@ const plagiarismModel = {
                                 }
                             }
                         }
+                        
+                        console.log(`完成所有比较，找到 ${pairs.length} 个相似对`);
                     }
                     
                     // 无论是否有相似对，都创建结果条目（这样用户总能查看提交）
@@ -337,12 +351,14 @@ const plagiarismModel = {
             }
             
             // 更新结果
+            console.log(`查重完成，共处理 ${results.length} 个语言分组`);
             await plagiarismCol.updateOne(
                 { _id: reportId },
                 { 
                     $set: { 
                         status: 'completed',
-                        results 
+                        results,
+                        completedAt: new Date()
                     } 
                 }
             );
@@ -351,7 +367,7 @@ const plagiarismModel = {
             console.error('查重处理失败:', error);
             await plagiarismCol.updateOne(
                 { _id: reportId },
-                { $set: { status: 'failed' } }
+                { $set: { status: 'failed', error: error.message } }
             );
         }
     },
