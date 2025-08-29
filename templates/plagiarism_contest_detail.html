@@ -8,7 +8,7 @@
         <div class="plagiarism-contest-info">
             <h2 class="plagiarism-contest-name">{{ contest.title }}</h2>
             <div class="plagiarism-contest-meta">
-                <span>{{ _('比赛时间') }}: {{ contest.beginAt | date('YYYY-MM-DD HH:mm') }} - {{ contest.endAt | date('MM-DD HH:mm') }}</span>
+                <span>{{ _('比赛时间') }}: {{ datetimeSpan(contest.beginAt)|safe }} - {{ datetimeSpan(contest.endAt)|safe }}</span>
                 <span>{{ _('总题目数') }}: {{ contest.pids.length }}</span>
                 <span>{{ _('查重报告') }}: {{ reports.length }}</span>
             </div>

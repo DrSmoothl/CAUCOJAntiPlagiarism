@@ -355,33 +355,25 @@ const plagiarismModel = {
     
     // 获取比赛信息
     async getContest(contestId: string): Promise<Contest | null> {
-        console.log('getContest开始查询，contestId:', contestId);
         let contest: Contest | null = null;
         
         // 尝试多种查询方式
         try {
             // 方式1: 直接查询
-            console.log('尝试方式1: 直接查询');
             contest = await documentsCol.findOne({
                 _id: contestId as any,
                 docType: 30 // 比赛文档类型
             }) as Contest | null;
-            console.log('方式1结果:', contest ? '找到' : '未找到');
         } catch (error) {
-            console.log('方式1查询失败:', error);
             // 查询失败，继续尝试其他方式
         }
         
         // 方式2: 如果直接查询失败，尝试字符串匹配
         if (!contest) {
             try {
-                console.log('尝试方式2: 字符串匹配');
                 const allContests = await documentsCol.find({ docType: 30 }).toArray() as Contest[];
-                console.log('获取到所有比赛数量:', allContests.length);
                 contest = allContests.find(c => c._id.toString() === contestId.toString()) || null;
-                console.log('方式2结果:', contest ? '找到' : '未找到');
             } catch (error) {
-                console.log('方式2查询失败:', error);
                 // 查询失败
             }
         }
@@ -485,10 +477,7 @@ class PlagiarismContestListHandler extends Handler {
                 throw new Error('请选择比赛');
             }
             
-            console.log('正在查询比赛，contestId:', contestId, 'type:', typeof contestId);
             const contest = await plagiarismModel.getContest(contestId);
-            console.log('查询结果:', contest ? '找到比赛' : '未找到比赛');
-            
             if (!contest) {
                 throw new Error('比赛不存在');
             }
