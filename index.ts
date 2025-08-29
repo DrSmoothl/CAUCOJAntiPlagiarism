@@ -94,7 +94,8 @@ declare module 'hydrooj' {
 class CodeSimilarityAnalyzer {
     // 兼容原有接口的相似度计算
     static calculateSimilarity(code1: string, code2: string, lang: string): number {
-        return EnhancedCodeSimilarityAnalyzer.calculateSimilarity(code1, code2, lang);
+        const result = EnhancedCodeSimilarityAnalyzer.calculateEnhancedSimilarity(code1, code2, lang);
+        return result.similarity; // 直接返回JPlag相似度
     }
     
     // 兼容原有接口的相似段落查找
@@ -115,7 +116,7 @@ class CodeSimilarityAnalyzer {
     
     // 增强版分析方法（新增）
     static getDetailedAnalysis(code1: string, code2: string, lang?: string) {
-        return EnhancedCodeSimilarityAnalyzer.getDetailedAnalysis(code1, code2, lang);
+        return EnhancedCodeSimilarityAnalyzer.getDetailedAnalysis(code1, code2, lang || 'cpp');
     }
     
     // 增强版相似度计算（新增）

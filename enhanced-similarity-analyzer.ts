@@ -1,6 +1,6 @@
 /**
- * JPlag增强版查重分析器
- * 集成简化版JPlag算法到现有查重系统
+ * JPlag专用查重分析器
+ * 完全基于JPlag算法进行代码相似性检测，对标原始JPlag实现
  */
 
 import { SimpleJPlag, JPlagResult, JPlagOptions } from './jplag-algorithm';
@@ -18,14 +18,15 @@ export interface EnhancedSimilarityDetail {
     tokenCount: number;
 }
 
-// 增强的查重结果
+// JPlag专用查重结果
 export interface EnhancedSimilarityResult {
-    originalSimilarity: number;    // 原始算法相似度
-    jplagSimilarity: number;       // JPlag算法相似度
-    combinedSimilarity: number;    // 组合相似度
+    similarity: number;            // JPlag算法相似度
     details: EnhancedSimilarityDetail[];
     confidence: number;            // 结果置信度
-    algorithm: 'original' | 'jplag' | 'hybrid';
+    algorithm: 'jplag';            // 固定使用JPlag算法
+    totalTokens1: number;          // 第一个提交的token总数
+    totalTokens2: number;          // 第二个提交的token总数
+    matchedTokens: number;         // 匹配的token数量
 }
 
 /**
@@ -40,7 +41,8 @@ class LanguageDetector {
                 /\bstd::/,
                 /\b(cout|cin|endl)\b/,
                 /\b(int|char|float|double|void)\s+\w+\s*\(/,
-                /#define\b/
+                /#define\b/,
+                /\busing\s+namespace\b/
             ],
             java: [
                 /\bpublic\s+class\b/,
@@ -50,37 +52,35 @@ class LanguageDetector {
                 /\b(String|Integer|ArrayList)\b/
             ],
             python: [
-                /\bdef\s+\w+\s*\(/,
-                /\bimport\s+\w+/,
-                /\bfrom\s+\w+\s+import\b/,
+                /^\s*def\s+\w+\s*\(/m,
+                /^\s*import\s+\w+/m,
+                /^\s*from\s+\w+\s+import/m,
                 /\bprint\s*\(/,
-                /\b(True|False|None)\b/
-            ],
-            javascript: [
-                /\bfunction\s+\w+\s*\(/,
-                /\b(var|let|const)\s+\w+/,
-                /\bconsole\.log\b/,
-                /\b(document|window)\./,
-                /\b(async|await)\b/
+                /:\s*$/m
             ]
         };
 
+        let maxScore = 0;
+        let detectedLanguage = 'cpp'; // 默认C++
+
         for (const [lang, patterns] of Object.entries(indicators)) {
-            const score = patterns.reduce((count, pattern) => {
-                return count + (pattern.test(code) ? 1 : 0);
+            const score = patterns.reduce((acc, pattern) => {
+                return acc + (pattern.test(code) ? 1 : 0);
             }, 0);
-            
-            if (score >= 2) {
-                return lang;
+
+            if (score > maxScore) {
+                maxScore = score;
+                detectedLanguage = lang;
             }
         }
 
-        return 'cpp'; // 默认为C++
+        return detectedLanguage;
     }
 }
 
 /**
- * JPlag增强版查重分析器
+ * JPlag专用查重分析器
+ * 完全基于JPlag算法进行代码相似性检测
  */
 export class EnhancedCodeSimilarityAnalyzer {
     private static jplagInstances = new Map<string, SimpleJPlag>();
@@ -93,7 +93,7 @@ export class EnhancedCodeSimilarityAnalyzer {
             const options: Partial<JPlagOptions> = {
                 language,
                 minimumTokenMatch: 12,     // 使用原始JPlag推荐值
-                minimumSimilarity: 0.1,    // 提高阈值，减少误报
+                minimumSimilarity: 0.0,    // 设置为0，让调用方决定阈值
                 ignoreComments: true,      // 忽略注释
                 ignoreCase: false,         // 不忽略大小写
                 normalizeWhitespace: true, // 标准化空白
@@ -105,15 +105,12 @@ export class EnhancedCodeSimilarityAnalyzer {
     }
 
     /**
-     * 增强版相似度计算
-     * 结合原始算法和JPlag算法
+     * JPlag相似度计算
+     * 完全基于JPlag算法
      */
     static calculateEnhancedSimilarity(code1: string, code2: string, language?: string): EnhancedSimilarityResult {
         // 自动检测语言
         const detectedLanguage = language || LanguageDetector.detectLanguage(code1);
-        
-        // 原始算法计算
-        const originalSimilarity = this.originalCalculateSimilarity(code1, code2, detectedLanguage);
         
         // JPlag算法计算
         const jplag = this.getJPlagInstance(detectedLanguage);
@@ -135,92 +132,75 @@ export class EnhancedCodeSimilarityAnalyzer {
             tokenCount: detail.match.lengthOfFirst
         }));
 
-        // 计算组合相似度
-        const combinedSimilarity = this.calculateCombinedSimilarity(
-            originalSimilarity, 
-            jplagResult.similarity,
-            enhancedDetails.length
-        );
-
-        // 计算置信度
-        const confidence = this.calculateConfidence(
-            originalSimilarity,
+        // 计算置信度（基于匹配token的数量和质量）
+        const confidence = this.calculateJPlagConfidence(
             jplagResult.similarity,
             jplagResult.matchedTokens,
             jplagResult.totalTokens1,
-            jplagResult.totalTokens2
+            jplagResult.totalTokens2,
+            enhancedDetails.length
         );
 
-        // 选择最佳算法
-        const algorithm = this.selectBestAlgorithm(originalSimilarity, jplagResult.similarity, confidence);
-
         return {
-            originalSimilarity,
-            jplagSimilarity: jplagResult.similarity,
-            combinedSimilarity,
+            similarity: jplagResult.similarity,
             details: enhancedDetails,
             confidence,
-            algorithm
+            algorithm: 'jplag',
+            totalTokens1: jplagResult.totalTokens1,
+            totalTokens2: jplagResult.totalTokens2,
+            matchedTokens: jplagResult.matchedTokens
         };
     }
 
     /**
-     * 原始相似度计算算法（简化版）
+     * 计算JPlag置信度
      */
-    private static originalCalculateSimilarity(code1: string, code2: string, language: string): number {
-        // 移除注释和空白
-        const clean1 = this.cleanCode(code1);
-        const clean2 = this.cleanCode(code2);
+    private static calculateJPlagConfidence(
+        similarity: number,
+        matchedTokens: number,
+        totalTokens1: number,
+        totalTokens2: number,
+        matchCount: number
+    ): number {
+        // 基础置信度来自相似度
+        let confidence = similarity;
         
-        if (clean1.length === 0 && clean2.length === 0) return 1.0;
-        if (clean1.length === 0 || clean2.length === 0) return 0.0;
-        
-        // 简单的编辑距离算法
-        const distance = this.levenshteinDistance(clean1, clean2);
-        const maxLength = Math.max(clean1.length, clean2.length);
-        
-        return 1 - (distance / maxLength);
-    }
-
-    private static cleanCode(code: string): string {
-        return code
-            .replace(/\/\/.*$/gm, '')        // 移除单行注释
-            .replace(/\/\*[\s\S]*?\*\//g, '') // 移除多行注释
-            .replace(/\s+/g, ' ')            // 标准化空白
-            .trim();
-    }
-
-    private static levenshteinDistance(str1: string, str2: string): number {
-        const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null));
-        
-        for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
-        for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
-        
-        for (let j = 1; j <= str2.length; j++) {
-            for (let i = 1; i <= str1.length; i++) {
-                const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
-                matrix[j][i] = Math.min(
-                    matrix[j][i - 1] + 1,     // 删除
-                    matrix[j - 1][i] + 1,     // 插入
-                    matrix[j - 1][i - 1] + indicator // 替换
-                );
-            }
+        // 根据匹配token数量调整
+        const minTokens = Math.min(totalTokens1, totalTokens2);
+        if (minTokens > 0) {
+            const tokenRatio = matchedTokens / minTokens;
+            confidence = confidence * 0.7 + tokenRatio * 0.3;
         }
         
-        return matrix[str2.length][str1.length];
+        // 根据匹配段落数量调整（更多匹配段落表示更可靠）
+        if (matchCount > 0) {
+            const matchBonus = Math.min(matchCount / 5, 0.2); // 最多增加20%
+            confidence = Math.min(confidence + matchBonus, 1.0);
+        }
+        
+        // 对于极小的文件，降低置信度
+        if (totalTokens1 < 20 || totalTokens2 < 20) {
+            confidence *= 0.7;
+        }
+        
+        return Math.max(0, Math.min(1, confidence));
     }
 
     /**
-     * 匹配类型分类
+     * 分类匹配类型
      */
     private static classifyMatchType(fragment1: string, fragment2: string): 'exact' | 'structural' | 'semantic' {
-        if (fragment1.trim() === fragment2.trim()) {
+        // 去除空白和注释后比较
+        const clean1 = fragment1.replace(/\s+/g, ' ').trim();
+        const clean2 = fragment2.replace(/\s+/g, ' ').trim();
+        
+        if (clean1 === clean2) {
             return 'exact';
         }
         
-        // 检查结构相似性（去除空白和变量名后）
-        const normalized1 = this.normalizeStructure(fragment1);
-        const normalized2 = this.normalizeStructure(fragment2);
+        // 检查是否只是变量名不同
+        const normalized1 = this.normalizeIdentifiers(clean1);
+        const normalized2 = this.normalizeIdentifiers(clean2);
         
         if (normalized1 === normalized2) {
             return 'structural';
@@ -229,143 +209,191 @@ export class EnhancedCodeSimilarityAnalyzer {
         return 'semantic';
     }
 
-    private static normalizeStructure(code: string): string {
-        return code
-            .replace(/\b[a-zA-Z_][a-zA-Z0-9_]*\b/g, 'VAR') // 变量名标准化
-            .replace(/\d+/g, 'NUM')                         // 数字标准化
-            .replace(/\s+/g, ' ')                          // 空白标准化
-            .trim();
+    /**
+     * 标准化标识符（替换为占位符）
+     */
+    private static normalizeIdentifiers(code: string): string {
+        // 简化版：替换标识符为占位符
+        return code.replace(/\b[a-zA-Z_]\w*\b/g, 'ID');
     }
 
     /**
-     * 计算组合相似度
+     * 直接获取相似度分数（向后兼容）
      */
-    private static calculateCombinedSimilarity(
-        originalSim: number, 
-        jplagSim: number, 
-        matchCount: number
-    ): number {
-        // 根据匹配数量调整权重
-        const jplagWeight = Math.min(0.7, 0.3 + matchCount * 0.1);
-        const originalWeight = 1 - jplagWeight;
-        
-        return originalSim * originalWeight + jplagSim * jplagWeight;
+    static getSimilarityScore(result: EnhancedSimilarityResult): number {
+        return result.similarity;
     }
 
     /**
-     * 计算置信度
+     * 检查是否为高相似度
      */
-    private static calculateConfidence(
-        originalSim: number,
-        jplagSim: number,
-        matchedTokens: number,
-        totalTokens1: number,
-        totalTokens2: number
-    ): number {
-        // 算法一致性
-        const consistency = 1 - Math.abs(originalSim - jplagSim);
-        
-        // 匹配覆盖率
-        const coverage = (2 * matchedTokens) / (totalTokens1 + totalTokens2);
-        
-        // 代码长度因子
-        const lengthFactor = Math.min(1, (totalTokens1 + totalTokens2) / 100);
-        
-        return (consistency * 0.4 + coverage * 0.4 + lengthFactor * 0.2);
+    static isHighSimilarity(result: EnhancedSimilarityResult, threshold: number = 0.7): boolean {
+        return result.similarity > threshold && result.confidence > 0.6;
     }
 
     /**
-     * 选择最佳算法
+     * 检查是否存在可疑的相似性模式
      */
-    private static selectBestAlgorithm(
-        originalSim: number,
-        jplagSim: number,
-        confidence: number
-    ): 'original' | 'jplag' | 'hybrid' {
-        if (confidence > 0.8) {
-            return 'hybrid';
+    static checkSuspiciousPatterns(result: EnhancedSimilarityResult): boolean {
+        // 高相似度且高置信度
+        if (result.similarity > 0.8 && result.confidence > 0.8) {
+            return true;
         }
         
-        if (Math.abs(originalSim - jplagSim) < 0.1) {
-            return 'hybrid';
+        // 多个小段落匹配，可能表示拼接抄袭
+        const smallMatches = result.details.filter(d => d.tokenCount < 20);
+        if (smallMatches.length > 5) {
+            return true;
         }
         
-        // 选择相似度更高的算法
-        return jplagSim > originalSim ? 'jplag' : 'original';
-    }
-
-    /**
-     * 寻找相似代码段（与现有接口兼容）
-     */
-    static findSimilarSegments(code1: string, code2: string, language: string, threshold: number = 0.4): any[] {
-        const result = this.calculateEnhancedSimilarity(code1, code2, language);
-        
-        return result.details
-            .filter(detail => detail.similarity >= threshold)
-            .map(detail => ({
-                startLine1: detail.startLine1,
-                endLine1: detail.endLine1,
-                startLine2: detail.startLine2,
-                endLine2: detail.endLine2,
-                similarity: detail.similarity,
-                type: detail.matchType,
-                tokenCount: detail.tokenCount
-            }));
-    }
-
-    /**
-     * 与原有系统兼容的相似度计算接口
-     */
-    static calculateSimilarity(code1: string, code2: string, language: string): number {
-        const result = this.calculateEnhancedSimilarity(code1, code2, language);
-        
-        // 根据算法选择返回最合适的相似度
-        switch (result.algorithm) {
-            case 'jplag':
-                return result.jplagSimilarity;
-            case 'original':
-                return result.originalSimilarity;
-            case 'hybrid':
-            default:
-                return result.combinedSimilarity;
+        // 结构性匹配占主导，可能表示重构
+        const structuralMatches = result.details.filter(d => d.matchType === 'structural').length;
+        if (structuralMatches > result.details.length * 0.7 && result.similarity > 0.6) {
+            return true;
         }
+        
+        return false;
     }
 
     /**
-     * 获取算法详细信息（用于调试和分析）
+     * 生成相似度报告摘要
      */
-    static getDetailedAnalysis(code1: string, code2: string, language?: string): {
-        result: EnhancedSimilarityResult;
-        jplagDetails: JPlagResult;
+    static generateSummary(result: EnhancedSimilarityResult): string {
+        const similarityPercent = (result.similarity * 100).toFixed(1);
+        const confidencePercent = (result.confidence * 100).toFixed(1);
+        const tokenRatio = result.totalTokens1 > 0 ? 
+            (result.matchedTokens / result.totalTokens1 * 100).toFixed(1) : '0';
+        
+        let summary = `JPlag相似度: ${similarityPercent}% (置信度: ${confidencePercent}%)\n`;
+        summary += `匹配token: ${result.matchedTokens}/${result.totalTokens1} (${tokenRatio}%)\n`;
+        summary += `匹配段落: ${result.details.length}个`;
+        
+        if (result.details.length > 0) {
+            const exactMatches = result.details.filter(d => d.matchType === 'exact').length;
+            const structuralMatches = result.details.filter(d => d.matchType === 'structural').length;
+            const semanticMatches = result.details.filter(d => d.matchType === 'semantic').length;
+            
+            summary += `\n  - 完全匹配: ${exactMatches}个`;
+            summary += `\n  - 结构匹配: ${structuralMatches}个`;
+            summary += `\n  - 语义匹配: ${semanticMatches}个`;
+        }
+        
+        return summary;
+    }
+
+    /**
+     * 获取匹配质量评级
+     */
+    static getMatchQuality(result: EnhancedSimilarityResult): 'low' | 'medium' | 'high' | 'very_high' {
+        if (result.similarity < 0.3) return 'low';
+        if (result.similarity < 0.6) return 'medium';
+        if (result.similarity < 0.8) return 'high';
+        return 'very_high';
+    }
+
+    /**
+     * 获取详细的分析报告
+     */
+    static getDetailedReport(result: EnhancedSimilarityResult): {
+        summary: string;
+        quality: string;
+        isSuspicious: boolean;
         recommendations: string[];
     } {
-        const detectedLanguage = language || LanguageDetector.detectLanguage(code1);
-        const jplag = this.getJPlagInstance(detectedLanguage);
-        const jplagDetails = jplag.compare(code1, code2);
-        const result = this.calculateEnhancedSimilarity(code1, code2, detectedLanguage);
+        const quality = this.getMatchQuality(result);
+        const isSuspicious = this.checkSuspiciousPatterns(result);
         
         const recommendations: string[] = [];
         
+        if (result.similarity > 0.8) {
+            recommendations.push('高度相似，建议人工审查');
+        }
+        
         if (result.confidence < 0.5) {
-            recommendations.push('低置信度结果，建议手动审核');
+            recommendations.push('置信度较低，建议结合其他证据');
         }
         
-        if (result.jplagSimilarity > 0.8 && result.originalSimilarity < 0.5) {
-            recommendations.push('JPlag检测到高度结构相似性，可能存在代码重构');
+        if (result.details.length === 0) {
+            recommendations.push('未发现显著匹配段落');
+        } else if (result.details.length > 10) {
+            recommendations.push('匹配段落较多，可能存在大面积抄袭');
         }
         
-        if (result.details.length > 10) {
-            recommendations.push('检测到多个相似段落，建议详细分析');
+        const structuralRatio = result.details.length > 0 ? 
+            result.details.filter(d => d.matchType === 'structural').length / result.details.length : 0;
+        
+        if (structuralRatio > 0.7) {
+            recommendations.push('主要为结构性匹配，可能经过重构');
         }
         
-        if (result.details.some(d => d.matchType === 'exact' && d.tokenCount > 20)) {
-            recommendations.push('检测到长段完全相同代码，高度可疑');
-        }
-
         return {
-            result,
-            jplagDetails,
+            summary: this.generateSummary(result),
+            quality,
+            isSuspicious,
             recommendations
         };
     }
+
+    /**
+     * 查找相似代码段（基于 JPlag 算法）
+     * 向后兼容方法，返回简化的相似段落格式
+     */
+    static findSimilarSegments(code1: string, code2: string, language: string, threshold = 0.7): any[] {
+        const result = this.calculateEnhancedSimilarity(code1, code2, language);
+        
+        // 如果相似度低于阈值，返回空数组
+        if (result.similarity < threshold) {
+            return [];
+        }
+        
+        // 转换为兼容格式
+        return result.details.map((detail, index) => ({
+            id: index,
+            startPos1: detail.startLine1,
+            endPos1: detail.endLine1,
+            startPos2: detail.startLine2,
+            endPos2: detail.endLine2,
+            similarity: detail.similarity,
+            content1: detail.codeFragment1,
+            content2: detail.codeFragment2,
+            algorithm: 'jplag'
+        }));
+    }
+
+    /**
+     * 获取详细分析结果（基于 JPlag 算法）
+     * 向后兼容方法，返回通用分析格式
+     */
+    static getDetailedAnalysis(code1: string, code2: string, language: string): any {
+        const result = this.calculateEnhancedSimilarity(code1, code2, language);
+        
+        return {
+            similarity: result.similarity,
+            confidence: result.confidence,
+            algorithm: 'jplag',
+            matches: result.details.map(detail => ({
+                startA: detail.startLine1,
+                endA: detail.endLine1,
+                startB: detail.startLine2,
+                endB: detail.endLine2,
+                similarity: detail.similarity,
+                tokenCount: detail.tokenCount,
+                matchType: detail.matchType
+            })),
+            totalTokens1: result.totalTokens1,
+            totalTokens2: result.totalTokens2,
+            matchedTokens: result.matchedTokens,
+            analysis: {
+                structuralSimilarity: result.similarity,
+                tokenizationMethod: 'structural',
+                preprocessingApplied: true,
+                excludeDeclarations: true,
+                quality: this.getMatchQuality(result),
+                isSuspicious: this.checkSuspiciousPatterns(result)
+            }
+        };
+    }
 }
+
+// 导出默认实例
+export default EnhancedCodeSimilarityAnalyzer;

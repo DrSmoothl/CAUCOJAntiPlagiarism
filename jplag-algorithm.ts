@@ -345,8 +345,8 @@ class SimpleStructuralParser {
 }
 
 /**
- * Greedy String Tiling算法实现
- * 核心的相似性检测算法
+ * 优化的 Greedy String Tiling 算法实现
+ * 基于原始JPlag的GST算法，增加重叠检测和优化
  */
 export class GreedyStringTiling {
     private readonly options: JPlagOptions;
@@ -357,28 +357,65 @@ export class GreedyStringTiling {
 
     /**
      * 比较两个token序列，返回JPlag结果
+     * 实现原始JPlag的GST算法核心逻辑
      */
     compare(tokens1: Token[], tokens2: Token[]): JPlagResult {
         const matches: Match[] = [];
         const marked1 = new Set<number>();
         const marked2 = new Set<number>();
 
-        // 反复寻找最长公共子序列，直到找不到更长的匹配
+        let currentMinMatch = this.options.minimumTokenMatch;
+
+        // 迭代寻找匹配，每次寻找当前最长的匹配
         while (true) {
-            const longestMatch = this.findLongestMatch(tokens1, tokens2, marked1, marked2);
-            
-            if (!longestMatch || longestMatch.lengthOfFirst < this.options.minimumTokenMatch) {
-                break;
+            const iterationMatches: Match[] = [];
+            let maxLength = currentMinMatch;
+
+            // 寻找所有长度为maxLength或更长的匹配
+            for (let i = 0; i < tokens1.length - maxLength + 1; i++) {
+                if (marked1.has(i)) continue;
+
+                for (let j = 0; j < tokens2.length - maxLength + 1; j++) {
+                    if (marked2.has(j)) continue;
+
+                    const matchLength = this.findMatchLength(tokens1, tokens2, i, j, marked1, marked2, maxLength);
+                    
+                    if (matchLength >= maxLength) {
+                        if (matchLength > maxLength) {
+                            // 找到更长的匹配，清空之前的短匹配
+                            iterationMatches.length = 0;
+                            maxLength = matchLength;
+                        }
+
+                        const match: Match = {
+                            startOfFirst: i,
+                            startOfSecond: j,
+                            lengthOfFirst: matchLength,
+                            lengthOfSecond: matchLength,
+                            similarity: 1.0
+                        };
+
+                        // 检查是否与现有匹配重叠
+                        if (!this.hasOverlap(iterationMatches, match)) {
+                            iterationMatches.push(match);
+                        }
+                    }
+                }
             }
 
-            matches.push(longestMatch);
-            
-            // 标记已匹配的token
-            for (let i = 0; i < longestMatch.lengthOfFirst; i++) {
-                marked1.add(longestMatch.startOfFirst + i);
+            if (iterationMatches.length === 0) {
+                break; // 没有找到更多匹配
             }
-            for (let i = 0; i < longestMatch.lengthOfSecond; i++) {
-                marked2.add(longestMatch.startOfSecond + i);
+
+            // 将找到的匹配加入全局匹配列表
+            matches.push(...iterationMatches);
+
+            // 标记已匹配的token
+            for (const match of iterationMatches) {
+                for (let i = 0; i < match.lengthOfFirst; i++) {
+                    marked1.add(match.startOfFirst + i);
+                    marked2.add(match.startOfSecond + i);
+                }
             }
         }
 
@@ -391,50 +428,41 @@ export class GreedyStringTiling {
 
         return {
             similarity,
-            matches: matches.sort((a, b) => a.startOfFirst - b.startOfFirst),
+            matches: this.sortMatches(matches),
             totalTokens1,
             totalTokens2,
             matchedTokens
         };
     }
 
-    private findLongestMatch(
-        tokens1: Token[], 
-        tokens2: Token[], 
-        marked1: Set<number>, 
-        marked2: Set<number>
-    ): Match | null {
-        let bestMatch: Match | null = null;
-        let maxLength = 0;
-
-        for (let i = 0; i < tokens1.length; i++) {
-            if (marked1.has(i)) continue;
-
-            for (let j = 0; j < tokens2.length; j++) {
-                if (marked2.has(j)) continue;
-
-                const match = this.extendMatch(tokens1, tokens2, i, j, marked1, marked2);
-                if (match && match.lengthOfFirst > maxLength) {
-                    maxLength = match.lengthOfFirst;
-                    bestMatch = match;
-                }
-            }
-        }
-
-        return bestMatch;
-    }
-
-    private extendMatch(
+    /**
+     * 寻找从指定位置开始的匹配长度
+     * 实现原始JPlag的匹配扩展逻辑
+     */
+    private findMatchLength(
         tokens1: Token[], 
         tokens2: Token[], 
         start1: number, 
         start2: number,
         marked1: Set<number>, 
-        marked2: Set<number>
-    ): Match | null {
+        marked2: Set<number>,
+        minLength: number
+    ): number {
         let length = 0;
         let i = start1;
         let j = start2;
+
+        // 首先检查是否能达到最小长度（反向检查优化）
+        for (let offset = minLength - 1; offset >= 0; offset--) {
+            const idx1 = start1 + offset;
+            const idx2 = start2 + offset;
+            
+            if (idx1 >= tokens1.length || idx2 >= tokens2.length ||
+                marked1.has(idx1) || marked2.has(idx2) ||
+                !this.tokensEqual(tokens1[idx1], tokens2[idx2])) {
+                return 0; // 无法达到最小长度
+            }
+        }
 
         // 向前扩展匹配
         while (
@@ -449,17 +477,63 @@ export class GreedyStringTiling {
             j++;
         }
 
-        if (length >= this.options.minimumTokenMatch) {
-            return {
-                startOfFirst: start1,
-                startOfSecond: start2,
-                lengthOfFirst: length,
-                lengthOfSecond: length,
-                similarity: 1.0
-            };
-        }
+        return length >= minLength ? length : 0;
+    }
 
-        return null;
+    /**
+     * 检查匹配是否与现有匹配重叠
+     */
+    private hasOverlap(existingMatches: Match[], newMatch: Match): boolean {
+        for (const match of existingMatches) {
+            if (this.matchesOverlap(match, newMatch)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 检查两个匹配是否重叠
+     */
+    private matchesOverlap(match1: Match, match2: Match): boolean {
+        // 检查第一个序列的重叠
+        const overlap1 = this.rangeOverlap(
+            match1.startOfFirst, 
+            match1.startOfFirst + match1.lengthOfFirst - 1,
+            match2.startOfFirst,
+            match2.startOfFirst + match2.lengthOfFirst - 1
+        );
+
+        // 检查第二个序列的重叠
+        const overlap2 = this.rangeOverlap(
+            match1.startOfSecond,
+            match1.startOfSecond + match1.lengthOfSecond - 1,
+            match2.startOfSecond,
+            match2.startOfSecond + match2.lengthOfSecond - 1
+        );
+
+        return overlap1 || overlap2;
+    }
+
+    /**
+     * 检查两个范围是否重叠
+     */
+    private rangeOverlap(start1: number, end1: number, start2: number, end2: number): boolean {
+        return Math.max(start1, start2) <= Math.min(end1, end2);
+    }
+
+    /**
+     * 排序匹配结果
+     */
+    private sortMatches(matches: Match[]): Match[] {
+        return matches.sort((a, b) => {
+            // 首先按第一个序列的起始位置排序
+            if (a.startOfFirst !== b.startOfFirst) {
+                return a.startOfFirst - b.startOfFirst;
+            }
+            // 然后按第二个序列的起始位置排序
+            return a.startOfSecond - b.startOfSecond;
+        });
     }
 
     private tokensEqual(token1: Token, token2: Token): boolean {
